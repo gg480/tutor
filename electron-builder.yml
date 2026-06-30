@@ -1,0 +1,47 @@
+# 拾步 OPC Tutor Suite — Electron Builder 配置
+# 业界标准: electron-builder + NSIS 安装程序
+
+appId: com.shibu.opc-tutor
+productName: 拾步 OPC Tutor Suite
+copyright: Copyright © 2026 拾步工作室
+
+directories:
+  output: dist-electron
+  buildResources: public
+
+files:
+  - electron/**/*
+  - .next/standalone/**/*
+  - .next/static/**/*
+  - prisma/**/*
+  - public/**/*
+  - package.json
+  - cli/**/*
+
+extraResources:
+  - from: prisma
+    to: prisma
+    filter:
+      - "**/*"
+  - from: .next/standalone
+    to: .next/standalone
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: public/icon.png
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 拾步 OPC Tutor
+  uninstallDisplayName: 拾步 OPC Tutor Suite 卸载
+  installerIcon: public/icon.png
+  installerHeaderIcon: public/icon.png
+
+publish: null

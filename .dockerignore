@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+playwright-report
+test-results
+.vercel
+.env.local
+.env.*.local
+Dockerfile
+docker-compose.yml

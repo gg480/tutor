@@ -1,0 +1,91 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & TypeCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npx prisma generate
+
+  test-e2e:
+    name: E2E Tests
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shibu
+          POSTGRES_PASSWORD: shibu
+          POSTGRES_DB: shibu_test
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql://shibu:shibu@localhost:5432/shibu_test
+      NEXTAUTH_SECRET: test-secret
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma db push
+      - run: npx prisma db seed
+      - run: npx playwright install chromium
+      - run: npx playwright test --reporter=html
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  build:
+    name: Build
+    needs: test-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+
+  docker:
+    name: Docker Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t shibu-opc-tutor .
+      - name: Run Docker container
+        run: |
+          docker run -d -p 3000:3000 \
+            -e DATABASE_URL="file:./data/dev.db" \
+            -e NEXTAUTH_SECRET="docker-secret" \
+            -e NEXTAUTH_URL="http://localhost:3000" \
+            --name shibu-test shibu-opc-tutor
+          sleep 5
+          docker logs shibu-test
+          curl -f http://localhost:3000/api/health || exit 1

@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 215 54% 35%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 32 91% 54%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 215 54% 35%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* 打印样式 — 用于诊断报告和学员周报导出PDF */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* 隐藏侧边栏和导航 */
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  /* 内容区占满全宽 */
+  main,
+  .ml-60 {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  /* 避免分页断裂 */
+  .print-page-break {
+    page-break-before: always;
+  }
+  /* 打印内容样式 */
+  .print-area {
+    padding: 20px !important;
+  }
+  .print-area h1 {
+    font-size: 24px !important;
+    margin-bottom: 16px !important;
+  }
+  .print-area h2 {
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+  }
+  .print-area h3 {
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+  }
+  .print-area p {
+    font-size: 12px !important;
+    line-height: 1.6 !important;
+  }
+}

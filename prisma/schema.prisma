@@ -1,0 +1,422 @@
+// 拾步 OPC Tutor Suite — Prisma 数据模型
+// 覆盖 OPC 四阶段：分析期→准备期→执行期→结课期
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 用户认证（NextAuth）
+// ============================================================
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          String    @default("admin") // admin | teacher
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// 分析期 — 学生主数据 & 诊断
+// ============================================================
+model Student {
+  id        String   @id @default(cuid())
+  name      String   // 学生姓名
+  grade     String   // 年级（如 "高一"、"六年级"）
+  school    String?  // 所在学校
+  // 主观认知（家长期望、目标）
+  parentGoal     String? // 家长期望
+  studentGoal    String? // 学生目标
+  // 客观信息
+  textbook       String? // 教材版本（如 "人教版"）
+  currentScore   String? // 当前成绩/排名
+  // 教师诊断
+  personality    String? // 性格特点
+  weakness       String? // 薄弱点诊断
+  summary        String? // 学习情况概况
+  // 联系方式
+  parentName     String?
+  parentPhone    String?
+  parentWechat   String?
+  // 状态
+  status         String   @default("active") // active | paused | ended
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // 关联
+  diagnosticReports DiagnosticReport[]
+  learningPlans     LearningPlan[]
+  dailyRecords      DailyRecord[]
+  mistakeRecords    MistakeRecord[]
+  examScores        ExamScore[]
+  courseRegistrations CourseRegistration[]
+  courses           Course[]
+  attendance        Attendance[]
+  learningReports   LearningReport[]
+  achievements      Achievement[]
+  studyEventParticipants StudyEventParticipant[]
+  convertedTrials        Trial[]
+}
+
+model DiagnosticReport {
+  id        String   @id @default(cuid())
+  studentId String
+  // 诊断内容
+  subjectiveInfo   String? // 主观认知记录
+  objectiveInfo    String? // 客观信息记录
+  weaknessAnalysis String? // 薄弱点分析（JSON结构化）
+  teacherNotes     String? // 教师综合备注
+  // 诊断结论
+  conclusion      String? // 诊断结论
+  recommendations String? // 改进建议
+  // 状态
+  status    String   @default("draft") // draft | final
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model LearningPlan {
+  id          String   @id @default(cuid())
+  studentId   String
+  planName    String   // 计划名称（如 "高一数学拔高计划"）
+  // 双轨制
+  schoolRatio Int      @default(70) // 校内同步占比
+  examRatio   Int      @default(30) // 竞赛拓展占比
+  // 课程包
+  totalHours  Int?     // 总课时
+  price       Float?   // 总价
+  startDate   DateTime?
+  endDate     DateTime?
+  // 状态
+  status      String   @default("active") // active | completed | cancelled
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// 准备期 — 知识点图谱 & 学案
+// ============================================================
+model KnowledgePoint {
+  id        String   @id @default(cuid())
+  subject   String   // 学科（如 "数学"、"物理"）
+  grade     String   // 年级
+  name      String   // 知识点名称
+  parentId  String?  // 父知识点ID（树形结构）
+  level     Int      @default(1) // 层级：1学科 2章 3节 4知识点
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent    KnowledgePoint?  @relation("KnowledgeTree", fields: [parentId], references: [id])
+  children  KnowledgePoint[] @relation("KnowledgeTree")
+  mistakes  MistakeRecord[]
+}
+
+model LessonPlan {
+  id        String   @id @default(cuid())
+  title     String   // 课题名称
+  studentId String?
+  subject   String   // 学科
+  grade     String?  // 年级
+  // 学案内容
+  knowledgePoints String? // 涉及知识点（JSON）
+  objectives      String? // 教学目标
+  keyPoints       String? // 重点难点
+  exercises       String? // 练习题（JSON）
+  homework        String? // 作业
+  aiGenerated     Boolean @default(false) // 是否AI生成
+  aiPrompt        String? // AI生成时的Prompt
+  // 状态
+  status    String   @default("draft") // draft | final
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// 执行期 — 排课、考勤、学情、错题、成绩
+// ============================================================
+model CourseRegistration {
+  id          String   @id @default(cuid())
+  studentId   String
+  packageName String   // 课程包名称
+  totalHours  Int      // 总课时
+  usedHours   Int      @default(0) // 已消耗课时
+  remainingHours Int  @default(0) // 剩余课时
+  price       Float?   // 实收金额
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("active") // active | completed | refunded
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courses Course[]
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  studentId     String
+  registrationId String? // 关联课程包用于自动扣课
+  subject       String   // 学科
+  courseType    String   @default("normal") // normal | competition | trial
+  startTime     DateTime // 上课时间
+  endTime       DateTime // 下课时间
+  duration      Int      @default(120) // 时长（分钟）
+  location      String?  // 上课地点
+  status        String   @default("scheduled") // scheduled | completed | cancelled | absent
+  teacherNotes  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  registration CourseRegistration? @relation(fields: [registrationId], references: [id])
+  attendance   Attendance?
+  dailyRecord  DailyRecord?
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  courseId  String   @unique
+  studentId String
+  status    String   @default("present") // present | late | absent | excused
+  checkInTime DateTime?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model DailyRecord {
+  id              String   @id @default(cuid())
+  studentId       String
+  courseId        String?  @unique
+  date            DateTime @default(now())
+  // 教师记录
+  teacherNotes    String?  // 教师口述学习状态
+  knowledgePoints String?  // 涉及知识点（JSON Array）
+  masteryLevel    Int      @default(3) // 掌握度 1-5
+  homeworkComplete Boolean? // 作业完成情况
+  mood            String?  // 学习状态：good / normal / bad
+  nextFocus       String?  // 下节课重点
+  // 下次上课建议
+  suggestions     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+}
+
+model MistakeRecord {
+  id               String   @id @default(cuid())
+  studentId        String
+  courseId         String?
+  imageUrl         String?  // 错题图片
+  subject          String   // 学科
+  // 错因分类
+  errorType        String   // careless | concept | approach | unknown
+  // 关联知识点
+  knowledgePointId String?
+  // 原始内容（文本录入）
+  originalContent  String?
+  correctAnswer    String?
+  wrongAnswer      String?
+  // 掌握状态
+  correctCount     Int      @default(0) // 同类题做对次数
+  status           String   @default("unsolved") // unsolved | in_progress | mastered
+  lastReviewedAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  student        Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  knowledgePoint KnowledgePoint? @relation(fields: [knowledgePointId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// 执行期 — 成绩追踪
+// ============================================================
+model ExamScore {
+  id            String   @id @default(cuid())
+  studentId     String
+  examName      String   // 考试名称（如 "期中考试"、"月考"、"奥赛初赛"）
+  examDate      DateTime
+  subject       String   // 科目
+  score         Float    // 得分
+  totalScore    Float    // 满分
+  ranking       String?  // 排名（自由文本）
+  classAverage  Float?   // 班级平均分
+  examType      String   @default("school") // school | competition | mock
+  // 分析
+  teacherAnalysis String?
+  weaknessPoints  String? // 暴露的薄弱知识点（JSON Array）
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// 结课期 — 报告 & 续费
+// ============================================================
+model LearningReport {
+  id        String   @id @default(cuid())
+  studentId String
+  reportType String  @default("period") // period | final | weekly
+  // 报告内容
+  periodStart DateTime?
+  periodEnd   DateTime?
+  summary     String?  // 总结
+  scoreTrend  String?  // 成绩趋势分析（JSON）
+  mistakeAnalysis String? // 错题分析（JSON）
+  nextPlan   String?  // 下期计划建议
+  renewalRecommendation String? // 续费建议
+  // 状态
+  status    String   @default("draft") // draft | final
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// 竞赛成果 — 获奖记录 & 证书
+// ============================================================
+model Achievement {
+  id        String   @id @default(cuid())
+  studentId String
+  title     String   // 奖项名称（如 "2026年市奥数竞赛三等奖"）
+  level     String   @default("school") // school | city | provincial | national | international
+  awardDate DateTime // 获奖日期
+  organization String? // 颁发机构
+  certificateUrl String? // 证书图片链接
+  description String? // 备注
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// 试听管理 — 潜在学生转化追踪
+// ============================================================
+model Trial {
+  id          String   @id @default(cuid())
+  studentName String   // 潜在学生姓名
+  grade       String   // 年级
+  parentName  String?  // 家长姓名
+  parentPhone String?  // 联系电话
+  subject     String?  // 意向科目
+  source      String   @default("wechat") // wechat | referral | social | other
+  status      String   @default("contacted") // contacted | trial_scheduled | trial_done | converted | lost
+  trialDate   DateTime? // 试听日期
+  notes       String?  // 备注
+  convertedStudentId String? // 转化后的学生ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  convertedStudent Student? @relation(fields: [convertedStudentId], references: [id], onDelete: SetNull)
+}
+
+// ============================================================
+// 学习活动 — 自习/竞赛周末/专题研习会
+// ============================================================
+model StudyEvent {
+  id          String   @id @default(cuid())
+  title       String   // 活动名称
+  type        String   @default("self_study") // self_study | competition_weekend | seminar | other
+  description String?  // 活动描述
+  startTime   DateTime // 开始时间
+  endTime     DateTime // 结束时间
+  location    String?  // 地点
+  maxParticipants Int? @default(10) // 最大参与人数
+  fee         Float?   // 费用（0=免费）
+  status      String   @default("scheduled") // scheduled | ongoing | completed | cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants StudyEventParticipant[]
+}
+
+// ============================================================
+// 学习活动参与记录
+// ============================================================
+model StudyEventParticipant {
+  id           String   @id @default(cuid())
+  eventId      String
+  studentId    String
+  status       String   @default("registered") // registered | attended | absent
+  registeredAt DateTime @default(now())
+
+  event   StudyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, studentId])
+}
+
+// ============================================================
+// 操作日志 — 审计追踪
+// ============================================================
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String   // create | update | delete
+  entity    String   // student | course | record | mistake | score | registration | trial
+  entityId  String?  // 操作对象的ID
+  summary   String   // 操作摘要（如 "新建学生：张三"）
+  details   String?  // 详细内容（JSON）
+  userId    String?  // 操作人
+  createdAt DateTime @default(now())
+}
