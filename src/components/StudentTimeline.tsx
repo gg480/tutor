@@ -50,20 +50,20 @@ export default function StudentTimeline({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchTimeline = async () => {
+      try {
+        const res = await fetch(`/api/students/${studentId}/timeline`);
+        const json = await res.json();
+        setData(json.data);
+      } catch (err) {
+        console.error("加载时间线失败", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchTimeline();
   }, [studentId]);
-
-  const fetchTimeline = async () => {
-    try {
-      const res = await fetch(`/api/students/${studentId}/timeline`);
-      const json = await res.json();
-      setData(json.data);
-    } catch (err) {
-      console.error("加载时间线失败", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return <div className="text-center py-10 text-gray-400">加载中...</div>;

@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
-import { Plus, Filter } from "lucide-react";
+import { Plus, Filter, Search, Camera, Sparkles, Loader2 } from "lucide-react";
 import {
   formatDate,
   getErrorTypeLabel,
   getErrorTypeColor,
 } from "@/lib/utils";
 import SimilarProblems from "@/components/SimilarProblems";
+import CameraCapture from "@/components/CameraCapture";
 
 interface Mistake {
   id: string;
@@ -24,14 +25,14 @@ interface Mistake {
   status: string;
   correctCount: number;
   createdAt: string;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
   knowledgePoint: { id: string; name: string } | null;
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 export default function MistakesPage() {
@@ -51,16 +52,12 @@ export default function MistakesPage() {
     correctAnswer: "",
     wrongAnswer: "",
   });
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<string>("");
+  const [searchUrl, setSearchUrl] = useState<string>("");
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchMistakes();
-      fetchStudents();
-    }
-  }, [status, filterErrorType, filterStudent, filterStatus]);
-
-  const fetchMistakes = async () => {
+  const fetchMistakes = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -75,7 +72,15 @@ export default function MistakesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStudent, filterErrorType, filterStatus]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchMistakes();
+      fetchStudents();
+    }
+  }, [status, filterErrorType, filterStudent, filterStatus, fetchMistakes]);
 
   const fetchStudents = async () => {
     try {
@@ -86,6 +91,71 @@ export default function MistakesPage() {
       console.error(err);
     }
   };
+
+  /** 拍照后处理：OCR 识别 + AI 分析 */
+  const handlePhotoCapture = useCallback(async (base64: string) => {
+    setCapturedImage(base64);
+    setOcrProcessing(true);
+    setOcrStatus("正在识别图片文字...");
+    setSearchUrl("");
+
+    try {
+      // 1. OCR 识别
+      const ocrRes = await fetch("/api/mistakes/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64 }),
+      });
+      const ocrData = await ocrRes.json();
+      if (!ocrRes.ok) throw new Error(ocrData.message || ocrData.error);
+
+      setOcrStatus("正在分析题目...");
+      const rawText = ocrData.data?.rawText || "";
+
+      // 2. AI 分析题目
+      const analyzeRes = await fetch("/api/mistakes/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: rawText, subject: form.subject }),
+      });
+      const analyzeData = await analyzeRes.json();
+
+      if (analyzeRes.ok && analyzeData.data) {
+        const { question, studentAnswer, correctAnswer, searchQuery } = analyzeData.data;
+
+        // 3. 自动填入表单
+        setForm((prev) => ({
+          ...prev,
+          originalContent: question || rawText.slice(0, 500),
+          wrongAnswer: studentAnswer || prev.wrongAnswer,
+          correctAnswer: correctAnswer || prev.correctAnswer,
+        }));
+
+        // 4. 生成搜索链接（打开新标签页搜索解法）
+        if (searchQuery) {
+          const encoded = encodeURIComponent(searchQuery);
+          setSearchUrl(`https://www.baidu.com/s?wd=${encoded}+答案+解析`);
+        }
+
+        setOcrStatus(question ? "识别完成，已自动填入表单" : "识别完成");
+        toast.success("题目识别完成");
+      } else {
+        // 分析失败，至少填入识别文本
+        setForm((prev) => ({
+          ...prev,
+          originalContent: rawText.slice(0, 500),
+        }));
+        setOcrStatus("文字已识别，可手动填写答案");
+        toast.success("文字识别完成");
+      }
+    } catch (err: any) {
+      console.error("OCR 处理失败:", err);
+      toast.error(err.message || "识别失败，请手动录入");
+      setOcrStatus("识别失败");
+    } finally {
+      setOcrProcessing(false);
+    }
+  }, [form.subject]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +186,9 @@ export default function MistakesPage() {
         correctAnswer: "",
         wrongAnswer: "",
       });
+      setCapturedImage(null);
+      setOcrStatus("");
+      setSearchUrl("");
       fetchMistakes();
     } catch (err: any) {
       toast.error(err.message);
@@ -227,7 +300,7 @@ export default function MistakesPage() {
                       {mistake.student.name}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {mistake.student.grade}
+                      {mistake.student.grade?.name}
                     </span>
                     <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded">
                       {mistake.subject}
@@ -259,9 +332,20 @@ export default function MistakesPage() {
                     </span>
                   </div>
 
+                  {/* 错题图片 */}
+                  {mistake.imageUrl && (
+                    <div className="mt-2">
+                      <img
+                        src={mistake.imageUrl}
+                        alt="错题图片"
+                        className="max-h-40 rounded-lg border border-gray-200 object-contain bg-white"
+                      />
+                    </div>
+                  )}
+
                   {/* 错题内容 */}
                   <div className="bg-gray-50 rounded-lg p-3 mt-2">
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
                       {mistake.originalContent}
                     </p>
                     {mistake.wrongAnswer && (
@@ -278,6 +362,20 @@ export default function MistakesPage() {
                         <span className="text-gray-700">
                           {mistake.correctAnswer}
                         </span>
+                      </div>
+                    )}
+                    {/* 搜索解法按钮 */}
+                    {mistake.originalContent && (
+                      <div className="mt-2 flex gap-2">
+                        <a
+                          href={`https://www.baidu.com/s?wd=${encodeURIComponent(mistake.originalContent.slice(0, 80))}+答案+解析`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-shibu-600 hover:text-shibu-700"
+                        >
+                          <Search className="w-3 h-3" />
+                          搜索答案与解析
+                        </a>
                       </div>
                     )}
                   </div>
@@ -347,7 +445,7 @@ export default function MistakesPage() {
                     <option value="">选择学生</option>
                     {students.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}（{s.grade}）
+                        {s.name}（{s.gradeName}）
                       </option>
                     ))}
                   </select>
@@ -408,9 +506,51 @@ export default function MistakesPage() {
                   }
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   rows={3}
-                  placeholder="录入错题的题干或描述"
+                  placeholder="录入错题的题干或描述，或使用下方拍照功能自动识别"
                   required
                 />
+              </div>
+
+              {/* 拍照 + OCR 区域 */}
+              <div className="border border-dashed border-gray-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Camera className="w-4 h-4" />
+                  <span>拍照识别（支持手写/印刷体）</span>
+                </div>
+                <CameraCapture
+                  onCapture={handlePhotoCapture}
+                  existingImage={capturedImage}
+                  onClear={() => {
+                    setCapturedImage(null);
+                    setOcrStatus("");
+                    setSearchUrl("");
+                  }}
+                />
+                {/* OCR 处理状态 */}
+                {ocrProcessing && (
+                  <div className="flex items-center gap-2 text-sm text-shibu-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{ocrStatus}</span>
+                  </div>
+                )}
+                {!ocrProcessing && ocrStatus && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Sparkles className="w-4 h-4" />
+                    <span>{ocrStatus}</span>
+                  </div>
+                )}
+                {/* 搜索解法按钮 */}
+                {searchUrl && (
+                  <a
+                    href={searchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-shibu-600 hover:text-shibu-700"
+                  >
+                    <Search className="w-3 h-3" />
+                    搜索该题答案与解析
+                  </a>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

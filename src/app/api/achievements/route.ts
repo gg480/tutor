@@ -19,7 +19,13 @@ export async function GET(req: Request) {
     where,
     orderBy: { awardDate: "desc" },
     include: {
-      student: { select: { id: true, name: true, grade: true } },
+      student: {
+        select: {
+          id: true,
+          name: true,
+          grade: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -64,7 +70,13 @@ export async function POST(req: Request) {
         description: body.description || null,
       },
       include: {
-        student: { select: { id: true, name: true, grade: true } },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { name: true } },
+          },
+        },
       },
     });
 

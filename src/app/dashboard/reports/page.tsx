@@ -9,8 +9,8 @@ import { formatDate } from "@/lib/utils";
 interface Student {
   id: string;
   name: string;
-  grade: string;
-  school: string | null;
+  gradeName: string;
+  schoolName: string | null;
   summary: string | null;
   createdAt: string;
   dailyRecords: { id: string; date: string; masteryLevel: number }[];
@@ -83,11 +83,11 @@ export default function ReportsPage() {
                   <div>
                     <span className="font-medium text-gray-900">{s.name}</span>
                     <span className="text-sm text-gray-400 ml-3">
-                      {s.grade}
+                      {s.gradeName}
                     </span>
-                    {s.school && (
+                    {s.schoolName && (
                       <span className="text-sm text-gray-400 ml-3">
-                        {s.school}
+                        {s.schoolName}
                       </span>
                     )}
                   </div>
@@ -108,7 +108,7 @@ export default function ReportsPage() {
                   {selectedStudent.name} 学习报告
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  {selectedStudent.grade} · {selectedStudent.school || ""} ·
+                  {selectedStudent.gradeName} · {selectedStudent.schoolName || ""} ·
                   建档 {formatDate(selectedStudent.createdAt)}
                 </p>
               </div>

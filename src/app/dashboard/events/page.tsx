@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -38,19 +38,19 @@ export default function EventsPage() {
     location: "", maxParticipants: "10", fee: "",
   });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") fetchEvents();
-  }, [status]);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const res = await fetch("/api/events");
       const data = await res.json();
       setEvents(data.data || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") fetchEvents();
+  }, [status, fetchEvents]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

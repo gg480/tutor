@@ -28,7 +28,14 @@ export async function GET(req: Request) {
     where,
     orderBy: { startTime: "asc" },
     take: 200,
-    include: { student: { select: { name: true, grade: true } } },
+    include: {
+      student: {
+        select: {
+          name: true,
+          grade: { select: { name: true } },
+        },
+      },
+    },
   });
 
   const now = new Date();
@@ -45,7 +52,7 @@ export async function GET(req: Request) {
   courses.forEach((c) => {
     const uid = `${c.id}@shibu.opc`;
     const summary = `[${c.subject}] ${c.student.name}${c.courseType === "competition" ? " [竞赛]" : ""}`;
-    const desc = `科目：${c.subject}\\n学生：${c.student.name}（${c.student.grade}）\\n类型：${c.courseType === "competition" ? "竞赛课" : c.courseType === "trial" ? "试听课" : "常规课"}\\n状态：${c.status === "completed" ? "已完成" : "待上课"}`;
+    const desc = `科目：${c.subject}\\n学生：${c.student.name}（${c.student.grade.name}）\\n类型：${c.courseType === "competition" ? "竞赛课" : c.courseType === "trial" ? "试听课" : "常规课"}\\n状态：${c.status === "completed" ? "已完成" : "待上课"}`;
 
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:${uid}`);

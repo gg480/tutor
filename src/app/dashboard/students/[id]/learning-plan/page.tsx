@@ -22,23 +22,20 @@ export default function NewLearningPlanPage() {
     notes: "",
   });
 
-  // `useParams()` can return null in Next.js; guard before accessing .id
-  if (!params) return null;
-
   useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        const res = await fetch(`/api/students/${params.id}`);
+        const data = await res.json();
+        setStudentName(data.data?.name || "");
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     if (authStatus === "unauthenticated") router.push("/login");
     if (authStatus === "authenticated" && params?.id) fetchStudent();
-  }, [authStatus, params?.id]);
-
-  const fetchStudent = async () => {
-    try {
-      const res = await fetch(`/api/students/${params.id}`);
-      const data = await res.json();
-      setStudentName(data.data?.name || "");
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [authStatus, params?.id, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +85,8 @@ export default function NewLearningPlanPage() {
       setForm({ ...form, examRatio: value, schoolRatio: String(100 - num) });
     }
   };
+
+  if (!params) return null;
 
   if (authStatus === "loading") {
     return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-shibu-600" /></div>;

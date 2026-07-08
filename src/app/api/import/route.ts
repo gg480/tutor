@@ -24,9 +24,9 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
-      if (!s.name || !s.grade) {
+      if (!s.name || !s.gradeId) {
         results.failed++;
-        results.errors.push(`第${i + 1}行：缺少姓名或年级`);
+        results.errors.push(`第${i + 1}行：缺少姓名或年级ID`);
         continue;
       }
 
@@ -34,12 +34,11 @@ export async function POST(req: Request) {
         await prisma.student.create({
           data: {
             name: s.name,
-            grade: s.grade,
-            school: s.school || null,
+            gradeId: s.gradeId,
+            schoolId: s.schoolId || null,
             parentName: s.parentName || null,
             parentPhone: s.parentPhone || null,
             parentWechat: s.parentWechat || null,
-            textbook: s.textbook || null,
             currentScore: s.currentScore || null,
             parentGoal: s.parentGoal || null,
             studentGoal: s.studentGoal || null,
@@ -102,7 +101,7 @@ export async function PUT(req: Request) {
         total: rows.length,
         headers,
         preview: rows.slice(0, 5),
-        sample: `姓名,年级,学校,家长姓名,联系电话,家长微信,教材版本,当前成绩\n张三,初一,实验中学,张妈妈,13800138000,zhangmom,人教版,班级第15名\n李四,初二,一中,李爸爸,13900139000,libaba,北师大版,班级第8名`,
+        sample: `姓名,年级ID,学校ID,家长姓名,联系电话,家长微信,当前成绩\n张三,grade-chuyi,school-shiyan,张妈妈,13800138000,zhangmom,班级第15名\n李四,grade-chuer,school-yizhong,李爸爸,13900139000,libaba,班级第8名`,
       },
     });
   } catch (err: any) {

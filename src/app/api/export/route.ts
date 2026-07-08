@@ -29,6 +29,8 @@ export async function GET(req: Request) {
         const students = await prisma.student.findMany({
           orderBy: { createdAt: "desc" },
           include: {
+            school: { select: { name: true } },
+            grade: { select: { name: true } },
             courseRegistrations: {
               where: { status: "active" },
               select: { remainingHours: true, totalHours: true },
@@ -37,14 +39,13 @@ export async function GET(req: Request) {
         });
 
         csv = toCSV(
-          ["姓名", "年级", "学校", "家长", "电话", "教材", "当前成绩", "剩余课时", "状态", "建档日期"],
+          ["姓名", "年级", "学校", "家长", "电话", "当前成绩", "剩余课时", "状态", "建档日期"],
           students.map((s) => [
             s.name,
-            s.grade,
-            s.school || "",
+            s.grade.name,
+            s.school?.name || "",
             s.parentName || "",
             s.parentPhone || "",
-            s.textbook || "",
             s.currentScore || "",
             String(s.courseRegistrations[0]?.remainingHours ?? ""),
             s.status === "active" ? "在读" : s.status === "paused" ? "暂停" : "已结课",

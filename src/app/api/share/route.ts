@@ -47,10 +47,20 @@ export async function GET(req: Request) {
   try {
     // 解析token
     const decoded = Buffer.from(token, "base64url").toString("utf-8");
-    const [studentId] = decoded.split(":");
+    const parts = decoded.split(":");
+    const studentId = parts[0];
+    const timestamp = parts[1] ? parseInt(parts[1], 10) : null;
 
     if (!studentId) {
       return NextResponse.json({ error: "无效的分享链接" }, { status: 400 });
+    }
+
+    // 校验过期时间（Token 中嵌入创建时间戳，30天有效）
+    if (timestamp) {
+      const expiresAt = timestamp + 30 * 24 * 60 * 60 * 1000;
+      if (Date.now() > expiresAt) {
+        return NextResponse.json({ error: "分享链接已过期，请重新生成" }, { status: 410 });
+      }
     }
 
     // 获取学生数据
@@ -59,17 +69,28 @@ export async function GET(req: Request) {
       select: {
         id: true,
         name: true,
-        grade: true,
-        school: true,
         parentName: true,
         summary: true,
         createdAt: true,
+        grade: { select: { name: true } },
+        school: { select: { name: true } },
       },
     });
 
     if (!student) {
       return NextResponse.json({ error: "学生不存在" }, { status: 404 });
     }
+
+    // 扁平化 schoolName/gradeName 给前端使用
+    const studentFlat = {
+      id: student.id,
+      name: student.name,
+      parentName: student.parentName,
+      summary: student.summary,
+      createdAt: student.createdAt,
+      gradeName: student.grade.name,
+      schoolName: student.school?.name ?? null,
+    };
 
     // 并行获取统计数据
     const [records, mistakes, scores, weeklyReports] = await Promise.all([
@@ -125,7 +146,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       data: {
-        student,
+        student: studentFlat,
         stats: { totalRecords, avgMastery, totalMistakes, masteredMistakes: masteredCount, totalExams: scores.length },
         charts: { masteryTrend },
         records,

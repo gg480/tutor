@@ -28,7 +28,7 @@ export async function POST(req: Request) {
             teacherNotes: teacherNotes || null,
             masteryLevel: masteryLevel || 3,
             mood: mood || "normal",
-            homeworkComplete: homeworkComplete !== undefined ? homeworkComplete : null,
+            homeworkComplete: homeworkComplete === "true" ? true : homeworkComplete === "false" ? false : typeof homeworkComplete === "boolean" ? homeworkComplete : null,
             nextFocus: nextFocus || null,
           },
         });

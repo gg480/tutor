@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
@@ -21,14 +21,14 @@ interface DailyRecord {
   mood: string | null;
   nextFocus: string | null;
   homeworkComplete: boolean | null;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
   course: { id: string; subject: string } | null;
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 export default function RecordsPage() {
@@ -68,21 +68,7 @@ function RecordsPageContent() {
     suggestions: "",
   });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchRecords();
-      fetchStudents();
-      // 如果URL中指定了studentId，自动弹窗并预选
-      const sid = searchParams?.get("recordFor");
-      if (sid) {
-        setForm(f => ({ ...f, studentId: sid }));
-        setShowNewForm(true);
-      }
-    }
-  }, [status, filterStudent, searchParams]);
-
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -95,7 +81,21 @@ function RecordsPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStudent]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchRecords();
+      fetchStudents();
+      // 如果URL中指定了studentId，自动弹窗并预选
+      const sid = searchParams?.get("recordFor");
+      if (sid) {
+        setForm(f => ({ ...f, studentId: sid }));
+        setShowNewForm(true);
+      }
+    }
+  }, [status, filterStudent, searchParams, fetchRecords]);
 
   const fetchStudents = async () => {
     try {
@@ -222,7 +222,7 @@ function RecordsPageContent() {
                     {record.student.name}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {record.student.grade}
+                    {record.student.grade?.name}
                   </span>
                   {record.course && (
                     <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded">
@@ -288,7 +288,7 @@ function RecordsPageContent() {
                     <option value="">选择学生</option>
                     {students.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}（{s.grade}）
+                        {s.name}（{s.gradeName}）
                       </option>
                     ))}
                   </select>
@@ -467,7 +467,7 @@ function RecordsPageContent() {
                         }}
                         className="w-4 h-4 rounded border-gray-300 text-shibu-600"
                       />
-                      {s.name}（{s.grade}）
+                      {s.name}（{s.gradeName}）
                     </label>
                   ))}
                 </div>
@@ -527,7 +527,11 @@ function RecordsPageContent() {
                     const res = await fetch("/api/records/batch", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(batchForm),
+                      body: JSON.stringify({
+                        ...batchForm,
+                        homeworkComplete: batchForm.homeworkComplete === "true",
+                        masteryLevel: parseInt(batchForm.masteryLevel),
+                      }),
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);

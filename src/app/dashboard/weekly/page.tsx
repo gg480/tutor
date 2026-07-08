@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -12,7 +12,7 @@ import { zhCN } from "date-fns/locale";
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 interface WeeklyReport {
@@ -27,7 +27,7 @@ interface WeeklyReport {
   renewalRecommendation: string;
   status: string;
   createdAt: string;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
   // 临时字段（来自生成响应）
   teacherComments?: string;
   records?: any[];
@@ -42,14 +42,6 @@ export default function WeeklyReportPage() {
   const [generating, setGenerating] = useState(false);
   const [nextPlan, setNextPlan] = useState("");
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchStudents();
-      fetchReports();
-    }
-  }, [status]);
-
   const fetchStudents = async () => {
     try {
       const res = await fetch("/api/students?status=active");
@@ -60,7 +52,7 @@ export default function WeeklyReportPage() {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       const params = selectedStudent
         ? `?studentId=${selectedStudent}`
@@ -73,11 +65,19 @@ export default function WeeklyReportPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStudent]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchStudents();
+      fetchReports();
+    }
+  }, [status, fetchReports]);
 
   useEffect(() => {
     fetchReports();
-  }, [selectedStudent]);
+  }, [selectedStudent, fetchReports]);
 
   const handleGenerate = async () => {
     if (!selectedStudent) {
@@ -145,7 +145,7 @@ export default function WeeklyReportPage() {
               <option value="">选择学生...</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}（{s.grade}）
+                  {s.name}（{s.gradeName}）
                 </option>
               ))}
             </select>
@@ -205,7 +205,7 @@ export default function WeeklyReportPage() {
                         {report.student.name}
                       </span>
                       <span className="text-sm text-gray-400 ml-2">
-                        {report.student.grade}
+                        {report.student.grade?.name}
                       </span>
                     </div>
                     <span className="text-xs text-gray-400">

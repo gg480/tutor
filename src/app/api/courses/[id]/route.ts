@@ -53,13 +53,17 @@ export async function PUT(
 
         // 只在首次完成时扣减课时（在事务内，原子性保证）
         if (updated.registrationId && before.status !== "completed") {
-          await tx.courseRegistration.update({
-            where: { id: updated.registrationId },
+          // 使用 updateMany 原子检测剩余课时 > 0，避免扣至负数
+          const regResult = await tx.courseRegistration.updateMany({
+            where: { id: updated.registrationId, remainingHours: { gt: 0 } },
             data: {
               usedHours: { increment: 1 },
               remainingHours: { decrement: 1 },
             },
           });
+          if (regResult.count === 0) {
+            throw new Error("课时已用尽，无法完成签到");
+          }
         }
       }
 

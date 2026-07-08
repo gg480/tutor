@@ -36,25 +36,25 @@ export default function ActivityLogsPage() {
   const [filterAction, setFilterAction] = useState("");
 
   useEffect(() => {
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (filterEntity) params.set("entity", filterEntity);
+        if (filterAction) params.set("action", filterAction);
+        const res = await fetch(`/api/activity-logs?${params}`);
+        const data = await res.json();
+        setLogs(data.data || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (status === "unauthenticated") redirect("/login");
     if (status === "authenticated") fetchLogs();
   }, [status, filterEntity, filterAction]);
-
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filterEntity) params.set("entity", filterEntity);
-      if (filterAction) params.set("action", filterAction);
-      const res = await fetch(`/api/activity-logs?${params}`);
-      const data = await res.json();
-      setLogs(data.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (status === "loading") {
     return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-shibu-600" /></div>;

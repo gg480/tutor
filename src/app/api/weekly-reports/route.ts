@@ -159,7 +159,13 @@ export async function POST(req: Request) {
         status: "final",
       },
       include: {
-        student: { select: { id: true, name: true, grade: true } },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -197,7 +203,13 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
-      student: { select: { id: true, name: true, grade: true } },
+      student: {
+        select: {
+          id: true,
+          name: true,
+          grade: { select: { name: true } },
+        },
+      },
     },
   });
 

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { PageSkeleton } from "@/components/Skeleton";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Course {
   id: string;
@@ -18,14 +18,14 @@ interface Course {
   startTime: string;
   endTime: string;
   status: string;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
   attendance: { status: string } | null;
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 export default function CoursesPage() {
@@ -38,11 +38,19 @@ export default function CoursesPage() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [showBatchForm, setShowBatchForm] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<Set<string>>(new Set());
+  const [conflictDialog, setConflictDialog] = useState<{
+    message: string;
+    conflict: { id: string; studentName: string; subject: string; startTime: string; endTime: string };
+    pendingForm: any;
+  } | null>(null);
   const [batchForm, setBatchForm] = useState({
     studentId: "", subject: "", courseType: "normal", duration: "120", location: "",
     startDate: "", endDate: "", time: "10:00",
     weekdays: [] as number[],
   });
+  // 待删除的课程（用于 ConfirmDialog 携带上下文）
+  const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     studentId: "",
     subject: "",
@@ -55,20 +63,14 @@ export default function CoursesPage() {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchCourses();
-      fetchStudents();
-    }
-  }, [status, currentWeek]);
-
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
+      const ws = startOfWeek(currentWeek, { weekStartsOn: 1 });
+      const we = endOfWeek(currentWeek, { weekStartsOn: 1 });
       const params = new URLSearchParams({
-        start: weekStart.toISOString(),
-        end: weekEnd.toISOString(),
+        start: ws.toISOString(),
+        end: we.toISOString(),
       });
       const res = await fetch(`/api/courses?${params}`);
       const data = await res.json();
@@ -78,7 +80,15 @@ export default function CoursesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWeek]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchCourses();
+      fetchStudents();
+    }
+  }, [status, currentWeek, fetchCourses]);
 
   const fetchStudents = async () => {
     try {
@@ -107,9 +117,19 @@ export default function CoursesPage() {
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
+        if (res.status === 409 && data.conflict) {
+          // 显示冲突弹窗，让用户选择是否覆盖
+          setConflictDialog({
+            message: data.message,
+            conflict: data.conflict,
+            pendingForm: { ...form, duration: parseInt(form.duration) },
+          });
+          return;
+        }
+        throw new Error(data.message);
       }
 
       toast.success("课程已创建");
@@ -147,6 +167,32 @@ export default function CoursesPage() {
       }
     } catch (err) {
       toast.error("操作失败");
+    }
+  };
+
+  // 删除已排课程：调用 DELETE /api/courses/[id]
+  const handleDeleteCourse = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/courses/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "删除失败");
+      }
+      toast.success("课程已删除");
+      setDeleteTarget(null);
+      // 同步清理选中态，避免遗留无效 id
+      if (selectedCourseIds.has(deleteTarget.id)) {
+        const next = new Set(selectedCourseIds);
+        next.delete(deleteTarget.id);
+        setSelectedCourseIds(next);
+      }
+      fetchCourses();
+    } catch (err: any) {
+      toast.error(err.message || "删除失败");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -326,6 +372,13 @@ export default function CoursesPage() {
                               签到完成
                             </button>
                           )}
+                          <button
+                            onClick={() => setDeleteTarget(course)}
+                            title="删除课程"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -364,7 +417,7 @@ export default function CoursesPage() {
                   <option value="">选择学生</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}（{s.grade}）
+                      {s.name}（{s.gradeName}）
                     </option>
                   ))}
                 </select>
@@ -487,7 +540,7 @@ export default function CoursesPage() {
                   <select value={batchForm.studentId} onChange={(e) => setBatchForm({...batchForm, studentId: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" required>
                     <option value="">选择学生</option>
-                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.name}（{s.grade}）</option>)}
+                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.name}（{s.gradeName}）</option>)}
                   </select>
                 </div>
                 <div>
@@ -564,6 +617,82 @@ export default function CoursesPage() {
           </div>
         </div>
       )}
+
+      {/* 排课冲突弹窗 */}
+      {conflictDialog && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="text-lg font-semibold text-gray-900">排课时间冲突</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">{conflictDialog.message}</p>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-orange-800">已有课程安排</p>
+              <p className="text-sm text-orange-600 mt-1">
+                {conflictDialog.conflict.studentName} · {conflictDialog.conflict.subject}
+              </p>
+              <p className="text-xs text-orange-500 mt-0.5">
+                {new Date(conflictDialog.conflict.startTime).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                ~{new Date(conflictDialog.conflict.endTime).toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">选择「覆盖」将删除原课程并创建新课程，此操作不可撤销。</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConflictDialog(null)}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  if (!conflictDialog) return;
+                  try {
+                    const res = await fetch("/api/courses", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        ...conflictDialog.pendingForm,
+                        overwrite: true,
+                        conflictCourseId: conflictDialog.conflict.id,
+                      }),
+                    });
+                    if (!res.ok) throw new Error("覆盖失败");
+                    toast.success("课程已创建（已覆盖冲突课程）");
+                    setConflictDialog(null);
+                    setShowNewForm(false);
+                    setForm({ studentId: "", subject: "", courseType: "normal", startTime: "", duration: "120", location: "" });
+                    fetchCourses();
+                  } catch (err: any) {
+                    toast.error(err.message);
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700"
+              >
+                覆盖并删除原课程
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 删除课程确认弹窗 */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除该课程？"
+        message={
+          deleteTarget
+            ? `将删除 ${deleteTarget.student.name} 的 ${deleteTarget.subject} 课程（${format(new Date(deleteTarget.startTime), "M月d日 HH:mm", { locale: zhCN })}），此操作不可撤销。`
+            : ""
+        }
+        confirmText="删除"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteCourse}
+        onCancel={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

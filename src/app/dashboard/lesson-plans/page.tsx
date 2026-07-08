@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -35,12 +35,7 @@ export default function LessonPlansPage() {
     knowledgePoints: "",
   });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") fetchPlans();
-  }, [status]);
-
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     try {
       const res = await fetch("/api/lesson-plans");
       const data = await res.json();
@@ -58,7 +53,12 @@ export default function LessonPlansPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") fetchPlans();
+  }, [status, fetchPlans]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();

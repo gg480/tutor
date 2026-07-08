@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Plus, Search, MoreHorizontal, Clock, BookOpen, Trash2, Download, CheckSquare } from "lucide-react";
@@ -13,8 +13,10 @@ import toast from "react-hot-toast";
 interface Student {
   id: string;
   name: string;
-  grade: string;
-  school: string | null;
+  gradeId: string;
+  schoolId: string | null;
+  gradeName: string;
+  schoolName: string | null;
   parentName: string | null;
   status: string;
   createdAt: string;
@@ -32,12 +34,7 @@ export default function StudentsPage() {
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [gradeFilter, setGradeFilter] = useState("");
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") fetchStudents();
-  }, [status, gradeFilter]);
-
-  const fetchStudents = async (q?: string) => {
+  const fetchStudents = useCallback(async (q?: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -52,7 +49,12 @@ export default function StudentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gradeFilter]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") fetchStudents();
+  }, [status, gradeFilter, fetchStudents]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,8 +209,8 @@ export default function StudentsPage() {
                       {student.name}
                     </h3>
                     <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                      <span>{student.grade}</span>
-                      {student.school && <span>· {student.school}</span>}
+                      <span>{student.gradeName}</span>
+                      {student.schoolName && <span>· {student.schoolName}</span>}
                       {student.parentName && (
                         <span>· {student.parentName}</span>
                       )}

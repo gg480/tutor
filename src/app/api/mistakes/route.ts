@@ -26,7 +26,13 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {
-        student: { select: { id: true, name: true, grade: true } },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { name: true } },
+          },
+        },
         knowledgePoint: { select: { id: true, name: true, subject: true } },
       },
     }),

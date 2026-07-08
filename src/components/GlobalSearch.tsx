@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Users, BookOpen, AlertTriangle, TrendingUp, CalendarCheck } from "lucide-react";
 
 interface SearchResults {
-  students: { id: string; name: string; grade: string; school: string | null; status: string }[];
+  students: { id: string; name: string; grade: { name: string } | null; school: { name: string } | null; status: string }[];
   courses: { id: string; subject: string; startTime: string; status: string; student: { name: string } }[];
   records: { id: string; date: string; masteryLevel: number; teacherNotes: string | null; student: { name: string } }[];
   mistakes: { id: string; subject: string; errorType: string; originalContent: string | null; status: string; student: { name: string } }[];
@@ -161,8 +161,8 @@ export default function GlobalSearch() {
                                 {item.name || item.student?.name || item.examName || ""}
                               </p>
                               <p className="text-xs text-gray-400 truncate">
-                                {item.grade || item.subject || item.examName || ""}
-                                {item.school ? ` · ${item.school}` : ""}
+                                {item.grade?.name || item.subject || item.examName || ""}
+                                {item.school?.name ? ` · ${item.school.name}` : ""}
                                 {item.originalContent ? ` · ${item.originalContent.slice(0, 30)}` : ""}
                               </p>
                             </div>

@@ -20,13 +20,19 @@ export async function GET(req: Request) {
       where: {
         OR: [
           { name: { contains: q } },
-          { school: { contains: q } },
+          { school: { is: { name: { contains: q } } } },
           { parentName: { contains: q } },
           { parentGoal: { contains: q } },
           { weakness: { contains: q } },
         ],
       },
-      select: { id: true, name: true, grade: true, school: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        grade: { select: { name: true } },
+        school: { select: { name: true } },
+      },
       take: 10,
     }),
     prisma.course.findMany({

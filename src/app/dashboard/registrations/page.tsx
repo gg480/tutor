@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -19,13 +19,13 @@ interface Registration {
   endDate: string | null;
   status: string;
   createdAt: string;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 export default function RegistrationsPage() {
@@ -45,15 +45,7 @@ export default function RegistrationsPage() {
   });
   const [renewForm, setRenewForm] = useState({ addHours: "", addPrice: "" });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchRegistrations();
-      fetchStudents();
-    }
-  }, [status]);
-
-  const fetchRegistrations = async () => {
+  const fetchRegistrations = useCallback(async () => {
     try {
       const res = await fetch("/api/registrations");
       const data = await res.json();
@@ -63,9 +55,9 @@ export default function RegistrationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       const res = await fetch("/api/students?status=active");
       const data = await res.json();
@@ -73,7 +65,15 @@ export default function RegistrationsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchRegistrations();
+      fetchStudents();
+    }
+  }, [status, fetchRegistrations, fetchStudents]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +178,7 @@ export default function RegistrationsPage() {
                       {reg.packageName}
                     </h3>
                     <p className="text-sm text-gray-500 mt-0.5">
-                      {reg.student.name} · {reg.student.grade}
+                      {reg.student.name} · {reg.student.grade?.name}
                     </p>
                   </div>
                   <span
@@ -332,7 +332,7 @@ export default function RegistrationsPage() {
                   <option value="">选择学生</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}（{s.grade}）
+                      {s.name}（{s.gradeName}）
                     </option>
                   ))}
                 </select>

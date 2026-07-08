@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -10,12 +10,13 @@ import { formatDate } from "@/lib/utils";
 interface StudentInfo {
   id: string;
   name: string;
-  grade: string;
-  school: string | null;
+  gradeId: string;
+  schoolId: string | null;
+  gradeName: string;
+  schoolName: string | null;
   parentName: string | null;
   parentGoal: string | null;
   studentGoal: string | null;
-  textbook: string | null;
   currentScore: string | null;
   personality: string | null;
   weakness: string | null;
@@ -29,9 +30,6 @@ export default function DiagnosticReportPage() {
   const router = useRouter();
   const { status: authStatus } = useSession();
 
-  if (!studentId) {
-    return <div className="text-center py-20 text-gray-400">参数错误</div>;
-  }
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -41,12 +39,7 @@ export default function DiagnosticReportPage() {
     teacherNotes: "",
   });
 
-  useEffect(() => {
-    if (authStatus === "unauthenticated") router.push("/login");
-    if (authStatus === "authenticated" && studentId) fetchStudent();
-  }, [authStatus, studentId]);
-
-  const fetchStudent = async () => {
+  const fetchStudent = useCallback(async () => {
     try {
       const res = await fetch(`/api/students/${studentId}`);
       const data = await res.json();
@@ -56,7 +49,12 @@ export default function DiagnosticReportPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
+
+  useEffect(() => {
+    if (authStatus === "unauthenticated") router.push("/login");
+    if (authStatus === "authenticated" && studentId) fetchStudent();
+  }, [authStatus, studentId, fetchStudent, router]);
 
   const handleGenerateReport = async () => {
     if (!reportContent.conclusion) {
@@ -74,7 +72,7 @@ export default function DiagnosticReportPage() {
             ? `家长期望：${student.parentGoal}\n学生目标：${student.studentGoal || "未提供"}`
             : null,
           objectiveInfo: student?.currentScore
-            ? `当前成绩：${student.currentScore}\n教材版本：${student.textbook || "未提供"}`
+            ? `当前成绩：${student.currentScore}`
             : null,
           weaknessAnalysis: student?.weakness
             ? { diagnosis: student.weakness, personality: student.personality }
@@ -95,6 +93,10 @@ export default function DiagnosticReportPage() {
       setGenerating(false);
     }
   };
+
+  if (!studentId) {
+    return <div className="text-center py-20 text-gray-400">参数错误</div>;
+  }
 
   if (loading) {
     return (
@@ -125,8 +127,8 @@ export default function DiagnosticReportPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">学情诊断报告</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {student.name} · {student.grade}
-              {student.school && ` · ${student.school}`}
+              {student.name} · {student.gradeName}
+              {student.schoolName && ` · ${student.schoolName}`}
             </p>
           </div>
           <button

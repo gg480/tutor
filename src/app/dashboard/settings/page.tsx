@@ -20,21 +20,21 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/settings");
+        const json = await res.json();
+        setData(json.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (status === "unauthenticated") redirect("/login");
     if (status === "authenticated") fetchData();
   }, [status]);
-
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/settings");
-      const json = await res.json();
-      setData(json.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();

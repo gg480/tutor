@@ -69,13 +69,10 @@ model VerificationToken {
 model Student {
   id        String   @id @default(cuid())
   name      String   // 学生姓名
-  grade     String   // 年级（如 "高一"、"六年级"）
-  school    String?  // 所在学校
   // 主观认知（家长期望、目标）
   parentGoal     String? // 家长期望
   studentGoal    String? // 学生目标
   // 客观信息
-  textbook       String? // 教材版本（如 "人教版"）
   currentScore   String? // 当前成绩/排名
   // 教师诊断
   personality    String? // 性格特点
@@ -85,10 +82,19 @@ model Student {
   parentName     String?
   parentPhone    String?
   parentWechat   String?
+  // 主数据外键（替代原 school/grade/textbook 文本字段）
+  schoolId       String?
+  gradeId        String
   // 状态
   status         String   @default("active") // active | paused | ended
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // 主数据关联
+  school              School?              @relation("StudentSchool", fields: [schoolId], references: [id])
+  grade               Grade                @relation("StudentGrade", fields: [gradeId], references: [id])
+  subjectRecords      StudentSubjectRecord[]
+  trainingSubjects    StudentTrainingSubject[]
 
   // 关联
   diagnosticReports DiagnosticReport[]
@@ -193,6 +199,9 @@ model CourseRegistration {
   packageName String   // 课程包名称
   totalHours  Int      // 总课时
   usedHours   Int      @default(0) // 已消耗课时
+  // 剩余课时：必须满足 remainingHours = totalHours - usedHours 的恒等关系。
+  // 所有修改操作必须在同一事务中同时更新两个字段以保持一致性。
+  // 扣课时使用 updateMany + remainingHours > 0 原子条件，避免扣至负数。
   remainingHours Int  @default(0) // 剩余课时
   price       Float?   // 实收金额
   startDate   DateTime?
@@ -419,4 +428,102 @@ model ActivityLog {
   details   String?  // 详细内容（JSON）
   userId    String?  // 操作人
   createdAt DateTime @default(now())
+}
+
+// ============================================================
+// 主数据底座 — 学校/年级/学科/教材版本/教材章节
+// ============================================================
+model School {
+  id          String   @id @default(cuid())
+  name        String
+  district    String
+  town        String?
+  level       String
+  isKey       Boolean  @default(false)
+  keyLevel    String?
+  address     String?
+  source      String   @default("manual")
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  students Student[] @relation("StudentSchool")
+}
+
+model Grade {
+  id           String  @id @default(cuid())
+  name         String
+  level        String
+  order        Int
+  schoolTypes  String
+
+  students Student[] @relation("StudentGrade")
+}
+
+model Subject {
+  id               String  @id @default(cuid())
+  name             String
+  category         String
+  examTypes        String
+  applicableLevels String
+  isCompetition    Boolean @default(false)
+}
+
+model TextbookVersion {
+  id         String @id @default(cuid())
+  region     String
+  gradeId    String
+  subjectId  String
+  version    String
+  publisher  String?
+
+  @@unique([region, gradeId, subjectId], name: "textbook_version_unique")
+}
+
+model TextbookChapter {
+  id                String  @id @default(cuid())
+  textbookVersionId String
+  chapterNo         String
+  chapterName       String
+  parentChapterId   String?
+  order             Int
+
+  @@unique([textbookVersionId, chapterNo], name: "textbook_chapter_unique")
+}
+
+// ============================================================
+// 学生主数据关联 — 全科成绩 & 培训学科
+// ============================================================
+model StudentSubjectRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  subjectId   String
+  score       Float
+  fullScore   Float
+  rank        String?
+  semester    String   @default("first") // first=上学期, second=下学期
+  examType    String
+  examDate    DateTime
+  examName    String
+  examRange   String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model StudentTrainingSubject {
+  id          String   @id @default(cuid())
+  studentId   String
+  subjectId   String
+  isAtStudio  Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subjectId], name: "student_training_subject_unique")
 }

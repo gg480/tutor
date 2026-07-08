@@ -20,7 +20,17 @@ export async function GET(req: Request) {
   const endDate = end ? endOfDay(new Date(end)) : new Date();
 
   const [student, courses, records, mistakes, scores, achievements, weeklyReports, registrations] = await Promise.all([
-    prisma.student.findUnique({ where: { id: studentId }, select: { id: true, name: true, grade: true, school: true, summary: true, createdAt: true } }),
+    prisma.student.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        name: true,
+        summary: true,
+        createdAt: true,
+        grade: { select: { name: true } },
+        school: { select: { name: true } },
+      },
+    }),
     prisma.course.findMany({ where: { studentId, startTime: { gte: startDate, lte: endDate } }, orderBy: { startTime: "asc" } }),
     prisma.dailyRecord.findMany({ where: { studentId, date: { gte: startDate, lte: endDate } }, orderBy: { date: "asc" } }),
     prisma.mistakeRecord.findMany({ where: { studentId, createdAt: { gte: startDate, lte: endDate } }, include: { knowledgePoint: { select: { name: true } } }, orderBy: { createdAt: "desc" } }),
@@ -72,7 +82,16 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     data: {
-      student,
+      student: student
+        ? {
+            id: student.id,
+            name: student.name,
+            summary: student.summary,
+            createdAt: student.createdAt,
+            gradeName: student.grade.name,
+            schoolName: student.school?.name ?? null,
+          }
+        : null,
       period: { start: startDate.toISOString(), end: endDate.toISOString() },
       stats: {
         totalCourses, totalHours, completedCourses, completionRate,

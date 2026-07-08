@@ -15,8 +15,8 @@ interface ParentData {
   student: {
     id: string;
     name: string;
-    grade: string;
-    school: string | null;
+    gradeName: string;
+    schoolName: string | null;
     parentName: string | null;
     summary: string | null;
     createdAt: string;
@@ -45,24 +45,24 @@ export default function ParentViewPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/share?token=${token}`);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "加载失败");
+        }
+        const json = await res.json();
+        setData(json.data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (token) fetchData();
   }, [token]);
-
-  const fetchData = async () => {
-    try {
-      const res = await fetch(`/api/share?token=${token}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "加载失败");
-      }
-      const json = await res.json();
-      setData(json.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -112,7 +112,7 @@ export default function ParentViewPage() {
           </div>
           <h1 className="text-2xl font-bold mt-4">{student.name} 的学习报告</h1>
           <p className="text-shibu-200 text-sm mt-1">
-            {student.grade} · {student.school || "个人工作室"}
+            {student.gradeName} · {student.schoolName || "个人工作室"}
             {student.parentName && ` · ${student.parentName}`}
           </p>
         </div>

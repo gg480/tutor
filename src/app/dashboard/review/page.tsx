@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -20,7 +20,7 @@ interface ReviewMistake {
   status: string;
   correctCount: number;
   knowledgePoint: { name: string } | null;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
 }
 
 export default function ReviewPage() {
@@ -35,15 +35,7 @@ export default function ReviewPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [sessionComplete, setSessionComplete] = useState(false);
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchMistakes();
-      fetchStudents();
-    }
-  }, [status, filterStudent, filterErrorType]);
-
-  const fetchMistakes = async () => {
+  const fetchMistakes = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "200" });
@@ -61,7 +53,15 @@ export default function ReviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStudent, filterErrorType]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchMistakes();
+      fetchStudents();
+    }
+  }, [status, filterStudent, filterErrorType, fetchMistakes]);
 
   const fetchStudents = async () => {
     try {
@@ -225,7 +225,7 @@ export default function ReviewPage() {
                 </span>
               )}
               <span className="text-xs text-gray-400 ml-auto">
-                {currentMistake.student.name} · {currentMistake.student.grade}
+                {currentMistake.student.name} · {currentMistake.student.grade?.name}
               </span>
             </div>
 

@@ -5,15 +5,20 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { ArrowLeft, Save } from "lucide-react";
+import SchoolSelector from "@/components/SchoolSelector";
+import GradeSelector from "@/components/GradeSelector";
+import SubjectTextbookCard from "@/components/SubjectTextbookCard";
+import type { School } from "@/app/dashboard/master-data/types";
+
+const DEFAULT_REGION = "南海区";
 
 interface StudentData {
   name: string;
-  grade: string;
-  school: string;
+  gradeId: string;
+  schoolId: string;
   parentName: string;
   parentPhone: string;
   parentWechat: string;
-  textbook: string;
   currentScore: string;
   parentGoal: string;
   studentGoal: string;
@@ -23,6 +28,27 @@ interface StudentData {
   status: string;
 }
 
+interface StudentDetail extends StudentData {
+  schoolName: string | null;
+  gradeName: string | null;
+}
+
+const EMPTY_FORM: StudentData = {
+  name: "",
+  gradeId: "",
+  schoolId: "",
+  parentName: "",
+  parentPhone: "",
+  parentWechat: "",
+  currentScore: "",
+  parentGoal: "",
+  studentGoal: "",
+  personality: "",
+  weakness: "",
+  summary: "",
+  status: "active",
+};
+
 export default function EditStudentPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -30,41 +56,28 @@ export default function EditStudentPage() {
   const { status: authStatus } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<StudentData>({
-    name: "",
-    grade: "",
-    school: "",
-    parentName: "",
-    parentPhone: "",
-    parentWechat: "",
-    textbook: "",
-    currentScore: "",
-    parentGoal: "",
-    studentGoal: "",
-    personality: "",
-    weakness: "",
-    summary: "",
-    status: "active",
-  });
+  const [form, setForm] = useState<StudentData>(EMPTY_FORM);
+  const [schoolName, setSchoolName] = useState<string>("");
+  const [gradeName, setGradeName] = useState<string>("");
 
   useEffect(() => {
     if (authStatus === "unauthenticated") router.push("/login");
-    if (authStatus === "authenticated" && id) fetchStudent();
-  }, [authStatus, id]);
+    if (authStatus === "authenticated" && id) void fetchStudent(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus, id, router]);
 
-  const fetchStudent = async () => {
+  const fetchStudent = async (sid: string) => {
     try {
-      const res = await fetch(`/api/students/${id}`);
+      const res = await fetch(`/api/students/${sid}`);
       const data = await res.json();
-      const s = data.data;
+      const s: StudentDetail = data.data;
       setForm({
         name: s.name || "",
-        grade: s.grade || "",
-        school: s.school || "",
+        gradeId: s.gradeId || "",
+        schoolId: s.schoolId || "",
         parentName: s.parentName || "",
         parentPhone: s.parentPhone || "",
         parentWechat: s.parentWechat || "",
-        textbook: s.textbook || "",
         currentScore: s.currentScore || "",
         parentGoal: s.parentGoal || "",
         studentGoal: s.studentGoal || "",
@@ -73,8 +86,10 @@ export default function EditStudentPage() {
         summary: s.summary || "",
         status: s.status || "active",
       });
+      setSchoolName(s.schoolName ?? "");
+      setGradeName(s.gradeName ?? "");
     } catch (err) {
-      toast.error("加载学生信息失败");
+      toast.error(err instanceof Error ? err.message : "加载学生信息失败");
     } finally {
       setLoading(false);
     }
@@ -82,11 +97,10 @@ export default function EditStudentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.grade) {
+    if (!form.name || !form.gradeId) {
       toast.error("请填写学生姓名和年级");
       return;
     }
-
     setSaving(true);
     try {
       const res = await fetch(`/api/students/${id}`, {
@@ -94,33 +108,39 @@ export default function EditStudentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "保存失败");
       }
-
       toast.success("学生信息已更新！");
       router.push(`/dashboard/students/${id}`);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {
       setSaving(false);
     }
   };
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const inputClass =
-    "w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-shibu-500 focus:border-transparent outline-none text-sm";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-  const sectionClass = "bg-white rounded-xl p-6 border border-gray-100";
+  const handleSchoolChange = (_schoolId: string, school: School | null) => {
+    // 切换学校时清空年级，避免脏数据
+    setForm({
+      ...form,
+      schoolId: school?.id ?? "",
+      gradeId: "",
+    });
+    setSchoolName(school?.name ?? "");
+    setGradeName("");
+  };
+
+  const handleGradeChange = (gradeId: string) => {
+    setForm({ ...form, gradeId });
+  };
 
   if (loading) {
     return (
@@ -131,9 +151,51 @@ export default function EditStudentPage() {
   }
 
   return (
+    <EditFormLayout
+      form={form}
+      schoolName={schoolName}
+      gradeName={gradeName}
+      saving={saving}
+      onChange={handleChange}
+      onSchoolChange={handleSchoolChange}
+      onGradeChange={handleGradeChange}
+      onSubmit={handleSubmit}
+      onBack={() => router.back()}
+    />
+  );
+}
+
+// 编辑表单整体布局，拆出来避免单函数超 50 行
+function EditFormLayout({
+  form,
+  schoolName,
+  gradeName,
+  saving,
+  onChange,
+  onSchoolChange,
+  onGradeChange,
+  onSubmit,
+  onBack,
+}: {
+  form: StudentData;
+  schoolName: string;
+  gradeName: string;
+  saving: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onSchoolChange: (schoolId: string, school: School | null) => void;
+  onGradeChange: (gradeId: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onBack: () => void;
+}) {
+  const inputClass =
+    "w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-shibu-500 focus:border-transparent outline-none text-sm";
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const sectionClass = "bg-white rounded-xl p-6 border border-gray-100";
+
+  return (
     <div className="max-w-3xl mx-auto">
       <button
-        onClick={() => router.back()}
+        onClick={onBack}
         className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -145,12 +207,10 @@ export default function EditStudentPage() {
         <p className="text-sm text-gray-500 mt-1">{form.name}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={onSubmit} className="space-y-6">
         {/* 基本信息 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ① 基本信息
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">① 基本信息</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>
@@ -159,39 +219,9 @@ export default function EditStudentPage() {
               <input
                 name="name"
                 value={form.name}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 required
-              />
-            </div>
-            <div>
-              <label className={labelClass}>
-                年级 <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="grade"
-                value={form.grade}
-                onChange={handleChange}
-                className={inputClass}
-                required
-              >
-                <option value="">选择年级</option>
-                {["小四", "小五", "小六", "初一", "初二", "初三", "高一", "高二", "高三"].map(
-                  (g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>所在学校</label>
-              <input
-                name="school"
-                value={form.school}
-                onChange={handleChange}
-                className={inputClass}
               />
             </div>
             <div>
@@ -199,7 +229,7 @@ export default function EditStudentPage() {
               <select
                 name="status"
                 value={form.status}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
               >
                 <option value="active">在读</option>
@@ -207,21 +237,49 @@ export default function EditStudentPage() {
                 <option value="ended">已结课</option>
               </select>
             </div>
+            <div>
+              <label className={labelClass}>所在学校</label>
+              <SchoolSelector
+                value={form.schoolId}
+                onChange={onSchoolChange}
+                initialSchoolName={schoolName}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>
+                年级 <span className="text-red-500">*</span>
+              </label>
+              <GradeSelector
+                schoolId={form.schoolId || undefined}
+                value={form.gradeId}
+                onChange={onGradeChange}
+                initialGradeName={gradeName}
+              />
+            </div>
           </div>
+        </div>
+
+        {/* 全科+教材版本展示 */}
+        <div className={sectionClass}>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            ② 全科与教材版本
+          </h2>
+          <SubjectTextbookCard
+            region={DEFAULT_REGION}
+            gradeId={form.gradeId || undefined}
+          />
         </div>
 
         {/* 家长信息 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ② 家长信息
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">③ 家长信息</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelClass}>家长姓名</label>
               <input
                 name="parentName"
                 value={form.parentName}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
               />
             </div>
@@ -230,7 +288,7 @@ export default function EditStudentPage() {
               <input
                 name="parentPhone"
                 value={form.parentPhone}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
               />
             </div>
@@ -239,7 +297,7 @@ export default function EditStudentPage() {
               <input
                 name="parentWechat"
                 value={form.parentWechat}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
               />
             </div>
@@ -248,36 +306,23 @@ export default function EditStudentPage() {
 
         {/* 诊断信息 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ③ 诊断与目标
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">④ 诊断与目标</h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>教材版本</label>
-                <input
-                  name="textbook"
-                  value={form.textbook}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>当前成绩</label>
-                <input
-                  name="currentScore"
-                  value={form.currentScore}
-                  onChange={handleChange}
-                  className={inputClass}
-                />
-              </div>
+            <div>
+              <label className={labelClass}>当前成绩</label>
+              <input
+                name="currentScore"
+                value={form.currentScore}
+                onChange={onChange}
+                className={inputClass}
+              />
             </div>
             <div>
               <label className={labelClass}>家长期望</label>
               <textarea
                 name="parentGoal"
                 value={form.parentGoal}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={2}
                 className={inputClass}
               />
@@ -287,7 +332,7 @@ export default function EditStudentPage() {
               <textarea
                 name="studentGoal"
                 value={form.studentGoal}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={2}
                 className={inputClass}
               />
@@ -297,7 +342,7 @@ export default function EditStudentPage() {
               <textarea
                 name="weakness"
                 value={form.weakness}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={2}
                 className={inputClass}
               />
@@ -307,7 +352,7 @@ export default function EditStudentPage() {
               <textarea
                 name="summary"
                 value={form.summary}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={2}
                 className={inputClass}
               />
@@ -319,7 +364,7 @@ export default function EditStudentPage() {
         <div className="flex gap-3 justify-end">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={onBack}
             className="px-6 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
           >
             取消

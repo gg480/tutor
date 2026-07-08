@@ -17,18 +17,29 @@ import { formatDate, getMasteryLabel, getErrorTypeLabel } from "@/lib/utils";
 import StudentTimeline from "@/components/StudentTimeline";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { DetailSkeleton } from "@/components/Skeleton";
+import SubjectTextbookCard from "@/components/SubjectTextbookCard";
+import TrainingSubjectSection from "@/components/student-detail/TrainingSubjectSection";
+import TrainingScheduleSection from "@/components/student-detail/TrainingScheduleSection";
+import ScoreChart from "@/components/student-detail/ScoreChart";
+import ScoreList from "@/components/student-detail/ScoreList";
+import ScoreFormModal from "@/components/student-detail/ScoreFormModal";
+import ScoreBatchForm from "@/components/student-detail/ScoreBatchForm";
+import CurrentScoresSection from "@/components/student-detail/CurrentScoresSection";
+
+const DEFAULT_REGION = "南海区";
 
 interface FullStudent {
   id: string;
   name: string;
-  grade: string;
-  school: string | null;
+  gradeId: string;
+  schoolId: string | null;
+  gradeName: string;
+  schoolName: string | null;
   parentName: string | null;
   parentPhone: string | null;
   parentWechat: string | null;
   parentGoal: string | null;
   studentGoal: string | null;
-  textbook: string | null;
   currentScore: string | null;
   personality: string | null;
   weakness: string | null;
@@ -53,23 +64,29 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // 成绩记录 tab 相关状态
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [scoreRefreshKey, setScoreRefreshKey] = useState(0);
+  // 培训学科 subjectId 列表，用于成绩曲线高亮
+  const [trainingSubjectIds, setTrainingSubjectIds] = useState<string[]>([]);
 
   useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        const res = await fetch(`/api/students/${id}`);
+        const data = await res.json();
+        setStudent(data.data);
+      } catch (err) {
+        toast.error("加载学生信息失败");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (authStatus === "unauthenticated") router.push("/login");
     if (authStatus === "authenticated" && id) fetchStudent();
-  }, [authStatus, id]);
-
-  const fetchStudent = async () => {
-    try {
-      const res = await fetch(`/api/students/${id}`);
-      const data = await res.json();
-      setStudent(data.data);
-    } catch (err) {
-      toast.error("加载学生信息失败");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [authStatus, id, router]);
 
   const [shareUrl, setShareUrl] = useState("");
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -118,7 +135,7 @@ export default function StudentDetailPage() {
     { id: "overview", label: "学情总览" },
     { id: "records", label: "学情记录" },
     { id: "mistakes", label: "错题本" },
-    { id: "scores", label: "成绩曲线" },
+    { id: "scores", label: "成绩记录" },
     { id: "timeline", label: "成长时间线" },
   ];
 
@@ -145,9 +162,8 @@ export default function StudentDetailPage() {
                 {student.name}
               </h1>
               <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                <span>{student.grade}</span>
-                {student.school && <span>· {student.school}</span>}
-                {student.textbook && <span>· {student.textbook}</span>}
+                <span>{student.gradeName}</span>
+                {student.schoolName && <span>· {student.schoolName}</span>}
                 <span
                   className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                     student.status === "active"
@@ -258,6 +274,27 @@ export default function StudentDetailPage() {
       <div className="bg-white rounded-b-xl border border-gray-100 p-6">
         {activeTab === "overview" && (
           <div className="space-y-6">
+            {/* 全科与教材版本 */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                全科与教材版本
+              </h3>
+              <SubjectTextbookCard
+                region={DEFAULT_REGION}
+                gradeId={student.gradeId}
+              />
+            </div>
+
+            {/* 培训学科标记 */}
+            <TrainingSubjectSection
+              studentId={student.id}
+              gradeId={student.gradeId}
+              onTrainingSubjectsChange={setTrainingSubjectIds}
+            />
+
+            {/* 培训日程关联展示 */}
+            <TrainingScheduleSection studentId={student.id} />
+
             {/* 主观认知 */}
             {(student.parentGoal || student.studentGoal) && (
               <div>
@@ -543,58 +580,31 @@ export default function StudentDetailPage() {
         )}
 
         {activeTab === "scores" && (
-          <div>
-            {student.examScores?.length > 0 ? (
-              <div className="space-y-3">
-                {student.examScores.map((s: any) => (
-                  <div
-                    key={s.id}
-                    className="border border-gray-100 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-gray-900">
-                          {s.examName}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-2">
-                          {formatDate(s.examDate)}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span
-                          className={`text-lg font-bold ${
-                            s.score / s.totalScore >= 0.85
-                              ? "text-green-600"
-                              : s.score / s.totalScore >= 0.6
-                              ? "text-shibu-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {s.score}
-                        </span>
-                        <span className="text-sm text-gray-400">
-                          /{s.totalScore}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                      <span>{s.subject}</span>
-                      {s.ranking && <span>排名：{s.ranking}</span>}
-                      {s.classAverage && (
-                        <span>班级平均：{s.classAverage}</span>
-                      )}
-                    </div>
-                    {s.teacherAnalysis && (
-                      <p className="text-sm text-gray-600 mt-2">
-                        {s.teacherAnalysis}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-400 py-10">暂无成绩记录</p>
-            )}
+          <div className="space-y-4">
+            {/* 操作按钮 */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowBatchModal(true)}
+                className="flex items-center gap-1 text-sm px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <Plus className="w-3.5 h-3.5" /> 批量录入
+              </button>
+              <button
+                onClick={() => setShowScoreModal(true)}
+                className="flex items-center gap-1 text-sm px-3 py-1.5 bg-shibu-600 text-white rounded-lg hover:bg-shibu-700"
+              >
+                <Plus className="w-3.5 h-3.5" /> 新增成绩
+              </button>
+            </div>
+
+            {/* 成绩曲线可视化 */}
+            <ScoreChart
+              studentId={student.id}
+              trainingSubjectIds={trainingSubjectIds}
+            />
+
+            {/* 成绩列表（按学科分组） */}
+            <ScoreList studentId={student.id} refreshKey={scoreRefreshKey} />
           </div>
         )}
 
@@ -624,6 +634,26 @@ export default function StudentDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 新增成绩弹窗 */}
+        {showScoreModal && (
+          <ScoreFormModal
+            studentId={student.id}
+            gradeId={student.gradeId}
+            onClose={() => setShowScoreModal(false)}
+            onSaved={() => setScoreRefreshKey((k) => k + 1)}
+          />
+        )}
+
+        {/* 批量录入弹窗 */}
+        {showBatchModal && (
+          <ScoreBatchForm
+            studentId={student.id}
+            gradeId={student.gradeId}
+            onClose={() => setShowBatchModal(false)}
+            onSaved={() => setScoreRefreshKey((k) => k + 1)}
+          />
         )}
 
         <ConfirmDialog

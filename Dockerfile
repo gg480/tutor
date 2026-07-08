@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci
 
 # ---- 构建阶段 ----
 FROM node:20-alpine AS builder
@@ -38,7 +38,7 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.ts ./
+COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/.env ./.env
 
 # 创建数据目录（SQLite持久化）

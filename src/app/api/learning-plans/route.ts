@@ -59,7 +59,13 @@ export async function GET(req: Request) {
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      student: { select: { id: true, name: true, grade: true } },
+      student: {
+        select: {
+          id: true,
+          name: true,
+          grade: { select: { name: true } },
+        },
+      },
     },
   });
 

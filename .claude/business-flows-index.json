@@ -1,0 +1,510 @@
+{
+  "meta": {
+    "version": "1.0",
+    "generatedFrom": "CODE-WIKI.md",
+    "totalFlows": 50,
+    "generatedAt": "2026-07-08"
+  },
+  "flows": [
+    {
+      "id": "bf-001",
+      "name": "登录流程",
+      "module": "登录",
+      "wikiSection": "A.1 / 4.2.1 / 4.1.4",
+      "pageUrl": "/login",
+      "apiEndpoints": ["/api/auth/[...nextauth]"],
+      "businessGoal": "管理员通过预填账号密码登录系统，未登录访问 dashboard 自动跳转登录页，登录成功后进入工作台",
+      "priority": "high"
+    },
+    {
+      "id": "bf-002",
+      "name": "学生建档（主数据联动）",
+      "module": "学生建档",
+      "wikiSection": "A.2 / 4.2.2 / 4.1.2",
+      "pageUrl": "/dashboard/students/new",
+      "apiEndpoints": ["/api/students", "/api/master-data/schools", "/api/master-data/schools/[id]/grades", "/api/master-data/textbooks", "/api/students/[id]/scores", "/api/students/[id]/training-subjects"],
+      "businessGoal": "新建学生时通过学校选择器→年级联动→全科教材版本→初始成绩→培训学科标记完成完整建档，验证主数据底座联动",
+      "priority": "high"
+    },
+    {
+      "id": "bf-003",
+      "name": "学生列表与搜索",
+      "module": "学生建档",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/students",
+      "apiEndpoints": ["/api/students"],
+      "businessGoal": "按状态/年级/关键字查询学生列表，验证 status、q、grade 三个查询参数的过滤效果",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-004",
+      "name": "学生详情查看与编辑",
+      "module": "学生建档",
+      "wikiSection": "4.1.1 / 4.2.2",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]"],
+      "businessGoal": "查看学生完整档案（含学校、年级、培训学科、全科成绩）并支持字段白名单更新",
+      "priority": "high"
+    },
+    {
+      "id": "bf-005",
+      "name": "学生删除",
+      "module": "学生建档",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]"],
+      "businessGoal": "删除学生时级联清理 14 张子表数据，验证 onDelete: Cascade 策略生效",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-006",
+      "name": "学生时间线聚合",
+      "module": "学生建档",
+      "wikiSection": "5.7 / 4.1.1",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]/timeline"],
+      "businessGoal": "并行查询 9 个数据源聚合成统一事件流，按时间倒序展示学生全生命周期里程碑",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-007",
+      "name": "学情诊断报告",
+      "module": "学生建档",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/students/[id]/diagnostic",
+      "apiEndpoints": ["/api/diagnostic-reports"],
+      "businessGoal": "为学生生成学情诊断报告，记录薄弱点与学习情况总结",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-008",
+      "name": "学生全科成绩录入",
+      "module": "学生建档",
+      "wikiSection": "4.1.1 / 5.3",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]/scores", "/api/students/[id]/scores/[recordId]"],
+      "businessGoal": "按学科+考试类型录入学生成绩，校验 subjectId/examName/examDate 必填，支持单条更新与删除",
+      "priority": "high"
+    },
+    {
+      "id": "bf-009",
+      "name": "成绩批量录入事务",
+      "module": "学生建档",
+      "wikiSection": "5.7 / 4.1.1",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]/scores/batch"],
+      "businessGoal": "通过事务一次录入多条成绩记录，验证全部成功提交或全部回滚的事务保护",
+      "priority": "high"
+    },
+    {
+      "id": "bf-010",
+      "name": "培训学科管理",
+      "module": "学生建档",
+      "wikiSection": "4.1.1 / 5.4",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/students/[id]/training-subjects", "/api/students/[id]/training-subjects/[recordId]"],
+      "businessGoal": "标记学生培训学科、结课时自动补全 endDate 为今日、恢复在读状态，验证唯一约束 [studentId, subjectId]",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-011",
+      "name": "试听线索管理",
+      "module": "学生建档",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/trials",
+      "apiEndpoints": ["/api/trials", "/api/trials/[id]"],
+      "businessGoal": "创建试听线索并跟踪转化状态，验证试听→正式学生的转化流程",
+      "priority": "low"
+    },
+    {
+      "id": "bf-012",
+      "name": "试听转化",
+      "module": "学生建档",
+      "wikiSection": "4.1.1 / 6.2.8",
+      "pageUrl": "/dashboard/trials",
+      "apiEndpoints": ["/api/trials/[id]"],
+      "businessGoal": "试听线索转化为正式学生，验证 convertedStudentId 外键关联（SetNull 策略）",
+      "priority": "low"
+    },
+    {
+      "id": "bf-013",
+      "name": "知识点管理",
+      "module": "学习计划",
+      "wikiSection": "4.1.1 / 6.2.5",
+      "pageUrl": "/dashboard/knowledge-points",
+      "apiEndpoints": ["/api/knowledge-points", "/api/knowledge-points/[id]"],
+      "businessGoal": "维护树形知识点结构，删除时级联置空 MistakeRecord.knowledgePointId（SetNull）",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-014",
+      "name": "AI 学案生成",
+      "module": "学习计划",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/lesson-plans",
+      "apiEndpoints": ["/api/lesson-plans"],
+      "businessGoal": "按学生模板生成 AI 学案（纯模板未接入外部 AI），验证学案 CRUD 与 studentId 关联（无外键约束）",
+      "priority": "low"
+    },
+    {
+      "id": "bf-015",
+      "name": "教材版本管理",
+      "module": "主数据维护",
+      "wikiSection": "4.1.2 / 6.2.3",
+      "pageUrl": "/dashboard/master-data",
+      "apiEndpoints": ["/api/master-data/textbooks", "/api/master-data/textbooks/[id]"],
+      "businessGoal": "按 region+gradeId+subjectId 三元组唯一约束维护教材版本，支持组合过滤查询",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-016",
+      "name": "章节树管理",
+      "module": "主数据维护",
+      "wikiSection": "4.1.2 / 5.7",
+      "pageUrl": "/dashboard/master-data",
+      "apiEndpoints": ["/api/master-data/chapters", "/api/master-data/chapters/[id]"],
+      "businessGoal": "树形章节 CRUD，buildChapterTree 按 parentChapterId 递归组装，验证 [textbookVersionId, chapterNo] 唯一约束",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-017",
+      "name": "章节 CSV 导入",
+      "module": "主数据维护",
+      "wikiSection": "4.1.2 / A.11",
+      "pageUrl": "/dashboard/master-data",
+      "apiEndpoints": ["/api/master-data/chapters/import"],
+      "businessGoal": "CSV 批量导入章节，parentChapterNo 通过匹配 chapterNo 建立父子关系",
+      "priority": "low"
+    },
+    {
+      "id": "bf-018",
+      "name": "双轨制学习计划",
+      "module": "学习计划",
+      "wikiSection": "A.6 / 4.1.1",
+      "pageUrl": "/dashboard/students/[id]/learning-plan",
+      "apiEndpoints": ["/api/learning-plans"],
+      "businessGoal": "学校 schoolRatio + 考试 examRatio 双滑块联动，约束两者之和等于 100",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-019",
+      "name": "排课与冲突检测",
+      "module": "排课签到",
+      "wikiSection": "4.1.1 / 5.7",
+      "pageUrl": "/dashboard/courses",
+      "apiEndpoints": ["/api/courses"],
+      "businessGoal": "新建课程时检测时间冲突（startTime/endTime 区间重叠），未传 overwrite 时返回 409 + 冲突详情",
+      "priority": "high"
+    },
+    {
+      "id": "bf-020",
+      "name": "排课冲突覆盖",
+      "module": "排课签到",
+      "wikiSection": "A.7 / 5.7",
+      "pageUrl": "/dashboard/courses",
+      "apiEndpoints": ["/api/courses"],
+      "businessGoal": "前端 ConfirmDialog 确认后携带 overwrite + conflictCourseId 重新提交，强制覆盖原冲突课程",
+      "priority": "high"
+    },
+    {
+      "id": "bf-021",
+      "name": "批量排课",
+      "module": "排课签到",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/courses",
+      "apiEndpoints": ["/api/courses/batch"],
+      "businessGoal": "按周几循环批量创建课程，单条冲突计入 errors 数组不影响其他成功创建",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-022",
+      "name": "课程签到事务",
+      "module": "排课签到",
+      "wikiSection": "A.3 / 5.7",
+      "pageUrl": "/dashboard/courses",
+      "apiEndpoints": ["/api/courses/[id]", "/api/courses/checkin"],
+      "businessGoal": "签到时原子检测 remainingHours > 0 防并发重复扣课，事务内 upsert attendance 并更新 registration 课时",
+      "priority": "high"
+    },
+    {
+      "id": "bf-023",
+      "name": "批量签到",
+      "module": "排课签到",
+      "wikiSection": "A.3 / 4.1.1",
+      "pageUrl": "/dashboard/courses",
+      "apiEndpoints": ["/api/courses/checkin"],
+      "businessGoal": "周视图选中多门课程一次性签到，每条原子扣课，签到后提供学情跳转入口",
+      "priority": "high"
+    },
+    {
+      "id": "bf-024",
+      "name": "学情记录管理",
+      "module": "排课签到",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/records",
+      "apiEndpoints": ["/api/records", "/api/records/[id]"],
+      "businessGoal": "创建学情时去重检查、按 studentId 分页查询，支持单条更新与删除",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-025",
+      "name": "学情批量创建",
+      "module": "排课签到",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/records",
+      "apiEndpoints": ["/api/records/batch"],
+      "businessGoal": "一次提交多条学情记录，错误隔离不阻塞其他记录创建",
+      "priority": "low"
+    },
+    {
+      "id": "bf-026",
+      "name": "错题管理 CRUD",
+      "module": "错题OCR",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/mistakes",
+      "apiEndpoints": ["/api/mistakes", "/api/mistakes/[id]"],
+      "businessGoal": "按 studentId/status/errorType 过滤错题列表，支持创建、更新、删除错题记录",
+      "priority": "high"
+    },
+    {
+      "id": "bf-027",
+      "name": "错题 OCR 录入",
+      "module": "错题OCR",
+      "wikiSection": "A.4 / 5.7",
+      "pageUrl": "/dashboard/mistakes",
+      "apiEndpoints": ["/api/mistakes/ocr", "/api/mistakes/analyze", "/api/mistakes"],
+      "businessGoal": "拍照→tesseract.js chi_sim+eng 识别→正则分析题目/答案→确认创建错题，验证 base64 解码与文本清洗",
+      "priority": "high"
+    },
+    {
+      "id": "bf-028",
+      "name": "错题文本分析",
+      "module": "错题OCR",
+      "wikiSection": "5.7",
+      "pageUrl": "/dashboard/mistakes",
+      "apiEndpoints": ["/api/mistakes/analyze"],
+      "businessGoal": "纯规则匹配：7 个正确答案标记 + 3 个错误答案标记，输出 question/correctAnswer/wrongAnswer/searchQuery/confidence",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-029",
+      "name": "同类题举一反三",
+      "module": "错题OCR",
+      "wikiSection": "A.10 / 4.1.1",
+      "pageUrl": "/dashboard/mistakes",
+      "apiEndpoints": ["/api/mistakes/[id]/similar"],
+      "businessGoal": "GET 获取 3 道同类题，POST 记录练习结果，连续做对 3 道自动升级错题状态为 mastered",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-030",
+      "name": "错题复习 Flashcard",
+      "module": "错题OCR",
+      "wikiSection": "A.5",
+      "pageUrl": "/dashboard/review",
+      "apiEndpoints": ["/api/mistakes", "/api/mistakes/[id]/similar"],
+      "businessGoal": "按学生+错因筛选非 mastered 错题，逐题展示题目→答案→做对/巩固反馈，连续做对 3 道自动升级状态",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-031",
+      "name": "错题本打印",
+      "module": "错题OCR",
+      "wikiSection": "9.2",
+      "pageUrl": "/dashboard/mistakes",
+      "apiEndpoints": ["/api/mistakes"],
+      "businessGoal": "选择学生后生成可打印的错题本，验证打印样式与错题分组渲染",
+      "priority": "low"
+    },
+    {
+      "id": "bf-032",
+      "name": "学员周报生成",
+      "module": "周报",
+      "wikiSection": "4.1.3 / 5.7",
+      "pageUrl": "/dashboard/weekly-reports",
+      "apiEndpoints": ["/api/weekly-reports"],
+      "businessGoal": "本周（周一开始）vs 上周对比，并行查询 4 个数据源并生成自然语言总结",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-033",
+      "name": "学期报告",
+      "module": "周报",
+      "wikiSection": "4.1.3",
+      "pageUrl": "/dashboard/semester-report",
+      "apiEndpoints": ["/api/semester-report"],
+      "businessGoal": "8 路并行查询生成学期总结报告，支持时间范围筛选",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-034",
+      "name": "学生学习报告",
+      "module": "周报",
+      "wikiSection": "4.1.3",
+      "pageUrl": "/dashboard/reports",
+      "apiEndpoints": ["/api/reports"],
+      "businessGoal": "按 studentId 查询生成单学生学习报告，studentId 必填校验",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-035",
+      "name": "课程包管理与续费",
+      "module": "排课签到",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/registrations",
+      "apiEndpoints": ["/api/registrations", "/api/registrations/[id]"],
+      "businessGoal": "课程包 CRUD 与续费变更，跟踪 totalHours/usedHours/remainingHours 三字段扣减",
+      "priority": "high"
+    },
+    {
+      "id": "bf-036",
+      "name": "财务总览",
+      "module": "周报",
+      "wikiSection": "4.1.3 / 5.7",
+      "pageUrl": "/dashboard/finance",
+      "apiEndpoints": ["/api/finance"],
+      "businessGoal": "计算预收款/已确认收入（按 usedHours/totalHours 比例）/递延收入/续费预警（remainingHours<=3）",
+      "priority": "high"
+    },
+    {
+      "id": "bf-037",
+      "name": "月度收入报表",
+      "module": "周报",
+      "wikiSection": "4.1.3",
+      "pageUrl": "/dashboard/revenue",
+      "apiEndpoints": ["/api/revenue"],
+      "businessGoal": "按月汇总已确认收入与新增签约，输出月度趋势",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-038",
+      "name": "竞赛成果管理",
+      "module": "学生建档",
+      "wikiSection": "4.1.1",
+      "pageUrl": "/dashboard/achievements",
+      "apiEndpoints": ["/api/achievements"],
+      "businessGoal": "按 studentId 录入与查询竞赛成果，支持竞赛学科（奥数/信息学奥赛）",
+      "priority": "low"
+    },
+    {
+      "id": "bf-039",
+      "name": "家长分享流程",
+      "module": "家长分享",
+      "wikiSection": "A.8 / 5.7",
+      "pageUrl": "/dashboard/students/[id]",
+      "apiEndpoints": ["/api/share"],
+      "businessGoal": "POST 生成 base64url token（嵌入 studentId+timestamp+random，30 天有效无需服务端存储），复制链接发给家长",
+      "priority": "high"
+    },
+    {
+      "id": "bf-040",
+      "name": "家长端 H5 查看",
+      "module": "家长分享",
+      "wikiSection": "4.2.1 / 4.1.4",
+      "pageUrl": "/parent/[token]",
+      "apiEndpoints": ["/api/share"],
+      "businessGoal": "家长通过 token 鉴权访问 H5 页面，GET /api/share?token=xxx 验证并返回学生数据",
+      "priority": "high"
+    },
+    {
+      "id": "bf-041",
+      "name": "学习活动管理",
+      "module": "学生建档",
+      "wikiSection": "4.1.1 / 6.2.9",
+      "pageUrl": "/dashboard/events",
+      "apiEndpoints": ["/api/events"],
+      "businessGoal": "学习活动 CRUD，StudyEvent 与 Student 通过 StudyEventParticipant 多对多关联",
+      "priority": "low"
+    },
+    {
+      "id": "bf-042",
+      "name": "全局搜索",
+      "module": "全局搜索",
+      "wikiSection": "A.9 / 4.1.4 / 5.8",
+      "pageUrl": "/dashboard",
+      "apiEndpoints": ["/api/search"],
+      "businessGoal": "⌘⇧F 触发 GlobalSearch 浮层，300ms 防抖后并行搜索 5 类资源分 section 展示",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-043",
+      "name": "工作台聚合",
+      "module": "主数据维护",
+      "wikiSection": "4.1.3",
+      "pageUrl": "/dashboard",
+      "apiEndpoints": ["/api/dashboard"],
+      "businessGoal": "聚合学生数/今日课/错题/掌握度趋势/近期成绩，作为登录后首页数据看板",
+      "priority": "high"
+    },
+    {
+      "id": "bf-044",
+      "name": "主数据维护（5 Tab）",
+      "module": "主数据维护",
+      "wikiSection": "A.11 / 4.2.2",
+      "pageUrl": "/dashboard/master-data",
+      "apiEndpoints": ["/api/master-data/schools", "/api/master-data/grades", "/api/master-data/subjects", "/api/master-data/textbooks", "/api/master-data/chapters"],
+      "businessGoal": "5 Tab 切换维护学校/年级/学科/教材版本/章节，学校支持镇街筛选+CSV 导入，章节树形递归渲染",
+      "priority": "high"
+    },
+    {
+      "id": "bf-045",
+      "name": "CSV 导出",
+      "module": "主数据维护",
+      "wikiSection": "4.1.4",
+      "pageUrl": "/dashboard/export",
+      "apiEndpoints": ["/api/export"],
+      "businessGoal": "按类型导出 students/records/mistakes/scores 四类 CSV 文件",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-046",
+      "name": "CSV 导入",
+      "module": "主数据维护",
+      "wikiSection": "4.1.4",
+      "pageUrl": "/dashboard/import",
+      "apiEndpoints": ["/api/import"],
+      "businessGoal": "POST 上传 CSV 解析预览，PUT 确认导入，验证按 name+district 去重逻辑",
+      "priority": "medium"
+    },
+    {
+      "id": "bf-047",
+      "name": "iCal 日历导出",
+      "module": "排课签到",
+      "wikiSection": "4.1.4",
+      "pageUrl": "/dashboard/calendar",
+      "apiEndpoints": ["/api/calendar"],
+      "businessGoal": "导出 iCal 格式日历文件供家长或学生订阅课程时间",
+      "priority": "low"
+    },
+    {
+      "id": "bf-048",
+      "name": "健康检查",
+      "module": "主数据维护",
+      "wikiSection": "4.1.4",
+      "pageUrl": "/api/health",
+      "apiEndpoints": ["/api/health"],
+      "businessGoal": "无需鉴权查询数据库连接/表/数据/环境，作为 Docker 容器健康检查与监控探针",
+      "priority": "high"
+    },
+    {
+      "id": "bf-049",
+      "name": "新手引导",
+      "module": "主数据维护",
+      "wikiSection": "4.1.3",
+      "pageUrl": "/dashboard",
+      "apiEndpoints": ["/api/onboarding"],
+      "businessGoal": "6 步检查引导状态（建档/排课/学情/错题/成绩/报告），帮助新用户快速上手",
+      "priority": "low"
+    },
+    {
+      "id": "bf-050",
+      "name": "系统设置与操作日志",
+      "module": "主数据维护",
+      "wikiSection": "4.1.3 / 5.5",
+      "pageUrl": "/dashboard/settings",
+      "apiEndpoints": ["/api/settings", "/api/activity-logs"],
+      "businessGoal": "查看系统信息与修改密码，分页查询操作日志，日志写入失败不影响主流程",
+      "priority": "medium"
+    }
+  ]
+}

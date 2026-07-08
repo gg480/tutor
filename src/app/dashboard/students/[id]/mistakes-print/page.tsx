@@ -21,6 +21,7 @@ interface Mistake {
 
 export default function MistakesPrintPage() {
   const params = useParams();
+  const id = params?.id as string | undefined;
   const router = useRouter();
   const { status: authStatus } = useSession();
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
@@ -28,9 +29,27 @@ export default function MistakesPrintPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      try {
+        const [studentRes, mistakesRes] = await Promise.all([
+          fetch(`/api/students/${id}`),
+          fetch(`/api/mistakes?studentId=${id}`),
+        ]);
+        const studentData = await studentRes.json();
+        const mistakesData = await mistakesRes.json();
+        setStudentName(studentData.data?.name || "");
+        setMistakes(mistakesData.data || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (authStatus === "unauthenticated") router.push("/login");
-    if (authStatus === "authenticated" && params?.id) fetchData();
-  }, [authStatus, params?.id]);
+    if (authStatus === "authenticated" && id) fetchData();
+  }, [authStatus, id, router]);
 
   useEffect(() => {
     if (!loading && mistakes.length > 0) {
@@ -39,24 +58,6 @@ export default function MistakesPrintPage() {
       return () => clearTimeout(timeout);
     }
   }, [loading, mistakes]);
-
-  const fetchData = async () => {
-    if (!params || !params.id) return;
-    try {
-      const [studentRes, mistakesRes] = await Promise.all([
-        fetch(`/api/students/${params.id}`),
-        fetch(`/api/mistakes?studentId=${params.id}`),
-      ]);
-      const studentData = await studentRes.json();
-      const mistakesData = await mistakesRes.json();
-      setStudentName(studentData.data?.name || "");
-      setMistakes(mistakesData.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-shibu-600" /></div>;

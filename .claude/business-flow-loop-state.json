@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "maxRounds": 40,
+  "completedRounds": 0,
+  "currentPointer": 0,
+  "totalFlows": 50,
+  "failedQueue": [],
+  "history": [],
+  "status": "active",
+  "createdAt": "2026-07-08",
+  "lastRunAt": null,
+  "stats": {
+    "totalFixes

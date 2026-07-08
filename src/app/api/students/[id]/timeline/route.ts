@@ -27,7 +27,14 @@ export async function GET(
   ] = await Promise.all([
     prisma.student.findUnique({
       where: { id: studentId },
-      select: { id: true, name: true, grade: true, createdAt: true, summary: true },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        summary: true,
+        grade: { select: { name: true } },
+        school: { select: { name: true } },
+      },
     }),
     prisma.diagnosticReport.findMany({
       where: { studentId },

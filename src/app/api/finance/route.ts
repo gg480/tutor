@@ -13,7 +13,13 @@ export async function GET() {
     const registrations = await prisma.courseRegistration.findMany({
       where: { status: { not: "refunded" } },
       include: {
-        student: { select: { id: true, name: true, grade: true } },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { name: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -68,7 +74,7 @@ export async function GET() {
       .map((r) => ({
         id: r.id,
         studentName: r.student.name,
-        grade: r.student.grade,
+        grade: r.student.grade.name,
         packageName: r.packageName,
         remainingHours: r.remainingHours,
         totalHours: r.totalHours,
@@ -129,7 +135,7 @@ export async function GET() {
     const registrationsList = registrations.map((r) => ({
       id: r.id,
       studentName: r.student.name,
-      grade: r.student.grade,
+      grade: r.student.grade.name,
       packageName: r.packageName,
       totalHours: r.totalHours,
       usedHours: r.usedHours,

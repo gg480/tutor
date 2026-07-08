@@ -24,7 +24,13 @@ export async function GET(req: Request) {
       take: limit,
       skip: offset,
       include: {
-        student: { select: { id: true, name: true, grade: true } },
+        student: {
+          select: {
+            id: true,
+            name: true,
+            grade: { select: { name: true } },
+          },
+        },
         course: { select: { id: true, subject: true } },
       },
     }),

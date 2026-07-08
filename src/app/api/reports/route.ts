@@ -18,6 +18,8 @@ export async function GET(req: Request) {
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     include: {
+      school: { select: { name: true } },
+      grade: { select: { name: true } },
       diagnosticReports: { orderBy: { createdAt: "desc" }, take: 1 },
       learningPlans: { orderBy: { createdAt: "desc" }, take: 1 },
       courseRegistrations: { where: { status: "active" } },
@@ -74,8 +76,8 @@ export async function GET(req: Request) {
       student: {
         id: student.id,
         name: student.name,
-        grade: student.grade,
-        school: student.school,
+        gradeName: student.grade.name,
+        schoolName: student.school?.name ?? null,
         summary: student.summary,
         createdAt: student.createdAt,
         parentName: student.parentName,

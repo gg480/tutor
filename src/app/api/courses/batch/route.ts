@@ -25,55 +25,80 @@ export async function POST(req: Request) {
 
     const created: any[] = [];
     const errors: string[] = [];
-    let current = new Date(start);
 
-    while (current <= end) {
-      const dayOfWeek = current.getDay(); // 0=Sun, 1=Mon, ...
-      // weekdays: 1=Mon, 2=Tue, ..., 7=Sun
-      const normalizedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+    // 整个循环在事务中执行，确保冲突检测和创建操作原子性，防止并发竞态
+    await prisma.$transaction(async (tx) => {
+      let current = new Date(start);
 
-      if (weekdays.includes(normalizedDay)) {
-        const startTime = new Date(current);
-        startTime.setHours(hours, minutes, 0, 0);
-        const endTime = new Date(startTime.getTime() + (duration || 120) * 60000);
+      while (current <= end) {
+        const dayOfWeek = current.getDay(); // 0=Sun, 1=Mon, ...
+        // weekdays: 1=Mon, 2=Tue, ..., 7=Sun
+        const normalizedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-        // 检查冲突（包含学生信息用于友好提示）
-        const conflict = await prisma.course.findFirst({
-          where: {
-            status: "scheduled",
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-          },
-          include: {
-            student: { select: { name: true } },
-          },
-        });
+        if (weekdays.includes(normalizedDay)) {
+          const startTime = new Date(current);
+          startTime.setHours(hours, minutes, 0, 0);
+          const endTime = new Date(startTime.getTime() + (duration || 120) * 60000);
 
-        if (!conflict) {
-          try {
-            const course = await prisma.course.create({
-              data: {
-                studentId,
-                subject,
-                courseType: courseType || "normal",
-                startTime,
-                endTime,
-                duration: duration || 120,
-                location: location || null,
-                status: "scheduled",
-              },
-              include: { student: { select: { name: true } } },
-            });
-            created.push(course);
-          } catch (err) {
-            errors.push(`${current.toLocaleDateString("zh-CN")}: 创建失败`);
+          // 检查冲突（包含学生信息用于友好提示）
+          const conflict = await tx.course.findFirst({
+            where: {
+              status: "scheduled",
+              startTime: { lt: endTime },
+              endTime: { gt: startTime },
+            },
+            include: {
+              student: { select: { name: true } },
+            },
+          });
+
+          if (!conflict) {
+            try {
+              const course = await tx.course.create({
+                data: {
+                  studentId,
+                  subject,
+                  courseType: courseType || "normal",
+                  startTime,
+                  endTime,
+                  duration: duration || 120,
+                  location: location || null,
+                  status: "scheduled",
+                },
+                include: { student: { select: { name: true } } },
+              });
+              created.push(course);
+            } catch (err) {
+              errors.push(`${current.toLocaleDateString("zh-CN")}: 创建失败`);
+            }
+          } else if (body.overwrite === true && body.conflictCourseIds?.includes(conflict.id)) {
+            // 覆盖模式：用户确认覆盖此冲突课程
+            try {
+              await tx.course.delete({ where: { id: conflict.id } });
+              const course = await tx.course.create({
+                data: {
+                  studentId,
+                  subject,
+                  courseType: courseType || "normal",
+                  startTime,
+                  endTime,
+                  duration: duration || 120,
+                  location: location || null,
+                  status: "scheduled",
+                },
+                include: { student: { select: { name: true } } },
+              });
+              created.push(course);
+            } catch (err) {
+              errors.push(`${current.toLocaleDateString("zh-CN")}: 覆盖失败`);
+            }
+          } else {
+            errors.push(`${current.toLocaleDateString("zh-CN")}: 与 ${conflict.student.name} 的课程冲突`);
           }
-        } else {
-          errors.push(`${current.toLocaleDateString("zh-CN")}: 与 ${conflict.student.name} 的课程冲突`);
         }
+        current.setDate(current.getDate() + 1);
       }
-      current.setDate(current.getDate() + 1);
-    }
+    });
 
     await logActivity({ action: "create", entity: "course", summary: `批量排课：成功${created.length}节，失败${errors.length}节`, userId: session.user?.id });
     return NextResponse.json({

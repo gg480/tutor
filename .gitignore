@@ -25,7 +25,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
+
+# 数据库备份与构建产物
+prisma/dev.db.bak*
+.next_backup/
+playwright-report/
+test-results/
 
 # vercel
 .vercel

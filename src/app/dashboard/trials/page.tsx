@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -61,12 +61,7 @@ export default function TrialsPage() {
   });
   const [filterStatus, setFilterStatus] = useState("");
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") fetchTrials();
-  }, [status, filterStatus]);
-
-  const fetchTrials = async () => {
+  const fetchTrials = useCallback(async () => {
     try {
       const res = await fetch("/api/trials");
       const data = await res.json();
@@ -77,7 +72,12 @@ export default function TrialsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") fetchTrials();
+  }, [status, filterStatus, fetchTrials]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

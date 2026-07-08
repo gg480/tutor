@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -24,12 +24,7 @@ export default function KnowledgePointsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ subject: "数学", grade: "初一", name: "" });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") fetchPoints();
-  }, [status]);
-
-  const fetchPoints = async () => {
+  const fetchPoints = useCallback(async () => {
     try {
       const res = await fetch("/api/knowledge-points");
       const data = await res.json();
@@ -37,7 +32,12 @@ export default function KnowledgePointsPage() {
       setBySubject(data.bySubject || {});
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") fetchPoints();
+  }, [status, fetchPoints]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

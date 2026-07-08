@@ -4,26 +4,48 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import SchoolSelector from "@/components/SchoolSelector";
+import GradeSelector from "@/components/GradeSelector";
+import SubjectTextbookCard from "@/components/SubjectTextbookCard";
+import type { School } from "@/app/dashboard/master-data/types";
+
+const DEFAULT_REGION = "南海区";
+
+interface StudentForm {
+  name: string;
+  gradeId: string;
+  schoolId: string;
+  parentName: string;
+  parentPhone: string;
+  parentWechat: string;
+  currentScore: string;
+  parentGoal: string;
+  studentGoal: string;
+  personality: string;
+  weakness: string;
+  summary: string;
+}
+
+const EMPTY_FORM: StudentForm = {
+  name: "",
+  gradeId: "",
+  schoolId: "",
+  parentName: "",
+  parentPhone: "",
+  parentWechat: "",
+  currentScore: "",
+  parentGoal: "",
+  studentGoal: "",
+  personality: "",
+  weakness: "",
+  summary: "",
+};
 
 export default function NewStudentPage() {
   const router = useRouter();
   const { status } = useSession();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    grade: "",
-    school: "",
-    parentName: "",
-    parentPhone: "",
-    parentWechat: "",
-    textbook: "",
-    currentScore: "",
-    parentGoal: "",
-    studentGoal: "",
-    personality: "",
-    weakness: "",
-    summary: "",
-  });
+  const [form, setForm] = useState<StudentForm>(EMPTY_FORM);
 
   if (status === "unauthenticated") {
     router.push("/login");
@@ -32,11 +54,10 @@ export default function NewStudentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.grade) {
+    if (!form.name || !form.gradeId) {
       toast.error("请填写学生姓名和年级");
       return;
     }
-
     setLoading(true);
     try {
       const res = await fetch("/api/students", {
@@ -44,17 +65,12 @@ export default function NewStudentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "创建失败");
-      }
-
+      if (!res.ok) throw new Error(data.message || "创建失败");
       toast.success("学生建档成功！");
       router.push(`/dashboard/students/${data.data.id}`);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "创建失败");
     } finally {
       setLoading(false);
     }
@@ -66,6 +82,50 @@ export default function NewStudentPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleSchoolChange = (_schoolId: string, school: School | null) => {
+    // 切换学校时清空年级，避免脏数据
+    setForm({
+      ...form,
+      schoolId: school?.id ?? "",
+      gradeId: "",
+    });
+  };
+
+  const handleGradeChange = (gradeId: string) => {
+    setForm({ ...form, gradeId });
+  };
+
+  return (
+    <FormLayout
+      form={form}
+      loading={loading}
+      onChange={handleChange}
+      onSchoolChange={handleSchoolChange}
+      onGradeChange={handleGradeChange}
+      onSubmit={handleSubmit}
+      onCancel={() => router.back()}
+    />
+  );
+}
+
+// 表单整体布局，拆出来避免单函数超 50 行
+function FormLayout({
+  form,
+  loading,
+  onChange,
+  onSchoolChange,
+  onGradeChange,
+  onSubmit,
+  onCancel,
+}: {
+  form: StudentForm;
+  loading: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onSchoolChange: (schoolId: string, school: School | null) => void;
+  onGradeChange: (gradeId: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}) {
   const inputClass =
     "w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-shibu-500 focus:border-transparent outline-none text-sm";
   const labelClass = "block text-sm font-medium text-gray-700 mb-1";
@@ -80,12 +140,10 @@ export default function NewStudentPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={onSubmit} className="space-y-6">
         {/* 基本信息 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ① 基本信息
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">① 基本信息</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>
@@ -94,53 +152,10 @@ export default function NewStudentPage() {
               <input
                 name="name"
                 value={form.name}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 placeholder="如：张晓明"
                 required
-              />
-            </div>
-            <div>
-              <label className={labelClass}>
-                年级 <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="grade"
-                value={form.grade}
-                onChange={handleChange}
-                className={inputClass}
-                required
-              >
-                <option value="">选择年级</option>
-                <option value="小四">小学四年级</option>
-                <option value="小五">小学五年级</option>
-                <option value="小六">小学六年级</option>
-                <option value="初一">初一</option>
-                <option value="初二">初二</option>
-                <option value="初三">初三</option>
-                <option value="高一">高一</option>
-                <option value="高二">高二</option>
-                <option value="高三">高三</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>所在学校</label>
-              <input
-                name="school"
-                value={form.school}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="如：实验中学"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>教材版本</label>
-              <input
-                name="textbook"
-                value={form.textbook}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="如：人教版"
               />
             </div>
             <div>
@@ -148,26 +163,52 @@ export default function NewStudentPage() {
               <input
                 name="currentScore"
                 value={form.currentScore}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 placeholder="如：班级第10名 / 95分"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>所在学校</label>
+              <SchoolSelector
+                value={form.schoolId}
+                onChange={onSchoolChange}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>
+                年级 <span className="text-red-500">*</span>
+              </label>
+              <GradeSelector
+                schoolId={form.schoolId || undefined}
+                value={form.gradeId}
+                onChange={onGradeChange}
               />
             </div>
           </div>
         </div>
 
-        {/* 家长信息 */}
+        {/* 全科+教材版本展示 */}
         <div className={sectionClass}>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ② 家长信息
+            ② 全科与教材版本
           </h2>
+          <SubjectTextbookCard
+            region={DEFAULT_REGION}
+            gradeId={form.gradeId || undefined}
+          />
+        </div>
+
+        {/* 家长信息 */}
+        <div className={sectionClass}>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">③ 家长信息</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelClass}>家长姓名</label>
               <input
                 name="parentName"
                 value={form.parentName}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 placeholder="如：李女士"
               />
@@ -177,7 +218,7 @@ export default function NewStudentPage() {
               <input
                 name="parentPhone"
                 value={form.parentPhone}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 placeholder="手机号"
               />
@@ -187,7 +228,7 @@ export default function NewStudentPage() {
               <input
                 name="parentWechat"
                 value={form.parentWechat}
-                onChange={handleChange}
+                onChange={onChange}
                 className={inputClass}
                 placeholder="微信号/手机号"
               />
@@ -197,16 +238,14 @@ export default function NewStudentPage() {
 
         {/* 主观认知 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ③ 主观认知
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">④ 主观认知</h2>
           <div className="space-y-4">
             <div>
               <label className={labelClass}>家长期望</label>
               <textarea
                 name="parentGoal"
                 value={form.parentGoal}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={3}
                 className={inputClass}
                 placeholder="家长对孩子有什么期望？目标学校/分数？"
@@ -217,7 +256,7 @@ export default function NewStudentPage() {
               <textarea
                 name="studentGoal"
                 value={form.studentGoal}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={3}
                 className={inputClass}
                 placeholder="学生自己有什么目标？想考什么学校？"
@@ -228,16 +267,14 @@ export default function NewStudentPage() {
 
         {/* 教师诊断 */}
         <div className={sectionClass}>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            ④ 教师诊断
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">⑤ 教师诊断</h2>
           <div className="space-y-4">
             <div>
               <label className={labelClass}>性格特点</label>
               <textarea
                 name="personality"
                 value={form.personality}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={2}
                 className={inputClass}
                 placeholder="学生的性格特点、学习习惯..."
@@ -248,7 +285,7 @@ export default function NewStudentPage() {
               <textarea
                 name="weakness"
                 value={form.weakness}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={3}
                 className={inputClass}
                 placeholder="学生的薄弱学科/知识点/思维短板..."
@@ -259,7 +296,7 @@ export default function NewStudentPage() {
               <textarea
                 name="summary"
                 value={form.summary}
-                onChange={handleChange}
+                onChange={onChange}
                 rows={3}
                 className={inputClass}
                 placeholder="综合分析：优势、不足、建议方向..."
@@ -272,7 +309,7 @@ export default function NewStudentPage() {
         <div className="flex gap-3 justify-end">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={onCancel}
             className="px-6 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition"
           >
             取消

@@ -24,7 +24,13 @@ export async function GET() {
           },
           orderBy: { startTime: "asc" },
           include: {
-            student: { select: { id: true, name: true, grade: true } },
+            student: {
+              select: {
+                id: true,
+                name: true,
+                grade: { select: { name: true } },
+              },
+            },
           },
         }),
 
@@ -36,7 +42,13 @@ export async function GET() {
           },
           orderBy: { remainingHours: "asc" },
           include: {
-            student: { select: { id: true, name: true, grade: true } },
+            student: {
+              select: {
+                id: true,
+                name: true,
+                grade: { select: { name: true } },
+              },
+            },
           },
         }),
 
@@ -52,7 +64,13 @@ export async function GET() {
           orderBy: { startTime: "desc" },
           take: 10,
           include: {
-            student: { select: { id: true, name: true, grade: true } },
+            student: {
+              select: {
+                id: true,
+                name: true,
+                grade: { select: { name: true } },
+              },
+            },
           },
         }),
 
@@ -70,7 +88,7 @@ export async function GET() {
     const formattedCourses = todayCourses.map((c) => ({
       id: c.id,
       studentName: c.student.name,
-      grade: c.student.grade,
+      grade: c.student.grade.name,
       subject: c.subject,
       courseType: c.courseType,
       startTime: c.startTime.toISOString(),
@@ -84,7 +102,7 @@ export async function GET() {
     const renewAlerts = activeRegistrations.map((r) => ({
       id: r.id,
       studentName: r.student.name,
-      grade: r.student.grade,
+      grade: r.student.grade.name,
       packageName: r.packageName,
       remainingHours: r.remainingHours,
       usedPercent:
@@ -97,7 +115,7 @@ export async function GET() {
     const pendingRecords = recentCourses.map((c) => ({
       id: c.id,
       studentName: c.student.name,
-      grade: c.student.grade,
+      grade: c.student.grade.name,
       subject: c.subject,
       completedAt: c.startTime.toISOString(),
     }));

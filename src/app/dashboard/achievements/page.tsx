@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,13 +17,13 @@ interface Achievement {
   certificateUrl: string | null;
   description: string | null;
   createdAt: string;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 const LEVEL_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
@@ -50,15 +50,7 @@ export default function AchievementsPage() {
     description: "",
   });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchAchievements();
-      fetchStudents();
-    }
-  }, [status]);
-
-  const fetchAchievements = async () => {
+  const fetchAchievements = useCallback(async () => {
     try {
       const res = await fetch("/api/achievements");
       const data = await res.json();
@@ -69,9 +61,9 @@ export default function AchievementsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       const res = await fetch("/api/students");
       const data = await res.json();
@@ -79,7 +71,15 @@ export default function AchievementsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchAchievements();
+      fetchStudents();
+    }
+  }, [status, fetchAchievements, fetchStudents]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +184,7 @@ export default function AchievementsPage() {
                     <span className="font-medium text-gray-700">
                       {a.student.name}
                     </span>
-                    <span>{a.student.grade}</span>
+                    <span>{a.student.grade?.name}</span>
                     {a.organization && <span>颁发：{a.organization}</span>}
                     <span>{formatDate(a.awardDate)}</span>
                   </div>
@@ -215,7 +215,7 @@ export default function AchievementsPage() {
                   <option value="">选择学生</option>
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}（{s.grade}）
+                      {s.name}（{s.gradeName}）
                     </option>
                   ))}
                 </select>

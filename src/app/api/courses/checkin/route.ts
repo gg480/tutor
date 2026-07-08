@@ -22,39 +22,48 @@ export async function POST(req: Request) {
       try {
         // 使用事务确保签到+扣课的原子性，防止并发重复扣课
         await prisma.$transaction(async (tx) => {
-          // 加锁读取当前课程状态（事务内，串行化隔离级别下自动加行锁）
-          const existing = await tx.course.findUnique({
-            where: { id: courseId },
-            select: { status: true, studentId: true, registrationId: true },
+          // 原子性检测并更新课程状态（updateMany 的 WHERE 条件本身即行级检测，
+          // 只有 status="scheduled" 的记录才会被更新，并发时只会有一个请求成功）
+          const updateResult = await tx.course.updateMany({
+            where: { id: courseId, status: "scheduled" },
+            data: { status: "completed" },
           });
 
-          if (!existing) {
-            throw new Error(`课程 ${courseId}: 不存在`);
-          }
-
-          if (existing.status === "completed") {
+          if (updateResult.count === 0) {
+            // 判断是不存在还是已签到
+            const existing = await tx.course.findUnique({
+              where: { id: courseId },
+              select: { id: true },
+            });
+            if (!existing) {
+              throw new Error(`课程 ${courseId}: 不存在`);
+            }
             throw new Error(`课程 ${courseId}: 已签到完成`);
           }
 
-          // 更新课程状态为已完成
-          const course = await tx.course.update({
+          // 查询课程详情（确定是本次请求完成的更新）
+          const course = await tx.course.findUnique({
             where: { id: courseId },
-            data: { status: "completed" },
+            select: { studentId: true, registrationId: true },
           });
 
           // 创建考勤记录
           await tx.attendance.upsert({
             where: { courseId },
             update: { status: "present", checkInTime: new Date() },
-            create: { courseId, studentId: course.studentId, status: "present", checkInTime: new Date() },
+            create: { courseId, studentId: course!.studentId, status: "present", checkInTime: new Date() },
           });
 
-          // 自动扣课（在事务内执行，避免重复扣课）
-          if (course.registrationId) {
-            await tx.courseRegistration.update({
-              where: { id: course.registrationId },
+          // 自动扣课（原子性：只有当剩余课时 > 0 时才扣减，避免扣至负数）
+          if (course!.registrationId) {
+            const regResult = await tx.courseRegistration.updateMany({
+              where: { id: course!.registrationId, remainingHours: { gt: 0 } },
               data: { usedHours: { increment: 1 }, remainingHours: { decrement: 1 } },
             });
+            if (regResult.count === 0) {
+              // 剩余课时为 0，回滚课程状态
+              throw new Error(`课程 ${courseId}: 课时已用尽，无法签到`);
+            }
           }
         });
 

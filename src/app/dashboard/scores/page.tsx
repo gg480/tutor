@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import toast from "react-hot-toast";
@@ -20,13 +20,13 @@ interface ExamScore {
   classAverage: number | null;
   examType: string;
   teacherAnalysis: string | null;
-  student: { id: string; name: string; grade: string };
+  student: { id: string; name: string; grade: { name: string } | null };
 }
 
 interface Student {
   id: string;
   name: string;
-  grade: string;
+  gradeName: string;
 }
 
 export default function ScoresPage() {
@@ -49,15 +49,7 @@ export default function ScoresPage() {
     teacherAnalysis: "",
   });
 
-  useEffect(() => {
-    if (status === "unauthenticated") redirect("/login");
-    if (status === "authenticated") {
-      fetchScores();
-      fetchStudents();
-    }
-  }, [status, filterStudent]);
-
-  const fetchScores = async () => {
+  const fetchScores = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -70,7 +62,15 @@ export default function ScoresPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStudent]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") redirect("/login");
+    if (status === "authenticated") {
+      fetchScores();
+      fetchStudents();
+    }
+  }, [status, filterStudent, fetchScores]);
 
   const fetchStudents = async () => {
     try {
@@ -203,7 +203,7 @@ export default function ScoresPage() {
                       {score.student.name}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {score.student.grade}
+                      {score.student.grade?.name}
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${

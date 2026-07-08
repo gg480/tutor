@@ -7,7 +7,7 @@ import { Printer, Download, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface ReportData {
-  student: { id: string; name: string; grade: string; school: string | null; summary: string | null; createdAt: string };
+  student: { id: string; name: string; gradeName: string; schoolName: string | null; summary: string | null; createdAt: string };
   period: { start: string; end: string };
   stats: {
     totalCourses: number; totalHours: number; completedCourses: number; completionRate: number;
@@ -42,21 +42,21 @@ export default function SemesterReportPage() {
     setStudents(json.data || []);
   };
 
-  const fetchReport = async () => {
-    if (!selectedStudent) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/semester-report?studentId=${selectedStudent}`);
-      const json = await res.json();
-      setData(json.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchReport = async () => {
+      if (!selectedStudent) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/semester-report?studentId=${selectedStudent}`);
+        const json = await res.json();
+        setData(json.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (selectedStudent) fetchReport();
     else setData(null);
   }, [selectedStudent]);
@@ -85,7 +85,7 @@ export default function SemesterReportPage() {
           >
             <option value="">选择学生...</option>
             {students.map((s: any) => (
-              <option key={s.id} value={s.id}>{s.name}（{s.grade}）</option>
+              <option key={s.id} value={s.id}>{s.name}（{s.gradeName}）</option>
             ))}
           </select>
         </div>
@@ -111,7 +111,7 @@ export default function SemesterReportPage() {
               <h1 className="text-3xl font-bold text-shibu-700 mb-2">学期学习报告</h1>
               <p className="text-xl text-gray-800 font-medium">{data.student.name}</p>
               <p className="text-sm text-gray-500 mt-1">
-                {data.student.grade} · {data.student.school || "个人工作室"}
+                {data.student.gradeName} · {data.student.schoolName || "个人工作室"}
               </p>
               <p className="text-xs text-gray-400 mt-4">
                 报告期间：{data.period.start.slice(0, 10)} ~ {data.period.end.slice(0, 10)}
