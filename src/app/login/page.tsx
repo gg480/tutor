@@ -7,8 +7,9 @@ import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // 预填管理员默认账号，便于内部工具快速登录（CODE-WIKI A.1 登录流程要求）
+  const [email, setEmail] = useState("admin@shibu.com");
+  const [password, setPassword] = useState("shibu123456");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,6 +67,7 @@ export default function LoginPage() {
                 placeholder="admin@shibu.com"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shibu-500 focus:border-transparent outline-none transition"
                 required
+                autoComplete="email"
               />
             </div>
 

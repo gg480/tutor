@@ -1,13 +1,30 @@
 {
   "version": "1.0",
   "maxRounds": 40,
-  "completedRounds": 0,
-  "currentPointer": 0,
+  "completedRounds": 1,
+  "currentPointer": 1,
   "totalFlows": 50,
   "failedQueue": [],
-  "history": [],
+  "history": [
+    {
+      "round": 1,
+      "flowId": "bf-001",
+      "flowName": "登录流程",
+      "result": "passAfterFix",
+      "fixFiles": [
+        "d:/02工作/家教工作室/shibu/src/app/login/page.tsx"
+      ],
+      "fixSummary": "登录页 input 未预填管理员账号密码（仅 placeholder），与 CODE-WIKI A.1 要求不符。修复：useState 初始值改为 admin@shibu.com / shibu123456，受控组件 value 自动同步到 input；email input 补充 autoComplete=email",
+      "timestamp": "2026-07-08T09:52:53.848Z"
+    }
+  ],
   "status": "active",
   "createdAt": "2026-07-08",
-  "lastRunAt": null,
+  "lastRunAt": "2026-07-08T09:52:53.848Z",
   "stats": {
-    "totalFixes
+    "totalFixes": 1,
+    "passOnFirstTry": 0,
+    "passAfterFix": 1,
+    "stillFailing": 0
+  }
+}
